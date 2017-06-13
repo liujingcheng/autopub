@@ -25,7 +25,7 @@ namespace AutoPublish
         public AutoPublish()
         {
             bool.TryParse(_needCopyDescendantDirStr, out _needCopyDescendantDir);
-            _exceptNames = _exceptNamesStr.Split(new[] {','}, StringSplitOptions.RemoveEmptyEntries);
+            _exceptNames = _exceptNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
         }
 
         public void Publish()
@@ -139,6 +139,11 @@ namespace AutoPublish
             if (string.IsNullOrEmpty(xmlPath) || string.IsNullOrEmpty(fileName))
             {
                 throw new Exception("xmlPath或fileName为空");
+            }
+
+            if (fileName.ToLower().Contains("autoupdate"))
+            {
+                return;//autoupdate不能更新自身，所以也不能更新xml节点
             }
 
             var fileNodeName = fileName.Replace("\\", "/");
