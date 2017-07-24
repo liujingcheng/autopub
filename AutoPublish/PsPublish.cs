@@ -35,8 +35,7 @@ namespace AutoPublish
                 Common.ModifyXmlFile(_needUpdateXmlFilePath, lineStr);
             }
 
-            Console.WriteLine("发布完成！按回车键退出...");
-            Console.ReadLine();
+            Console.WriteLine("WPF端XML文件更新完成！");
         }
     }
 }
