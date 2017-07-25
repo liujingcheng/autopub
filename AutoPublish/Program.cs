@@ -13,7 +13,7 @@ namespace AutoPublish
             {
                 //var publish = new AutoPublish();
                 var publish = new PsPublish();
-                publish.Publish();
+                publish.Publish(args[0], args[1]);
             }
             catch (Exception ex)
             {
