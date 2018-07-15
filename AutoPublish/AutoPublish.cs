@@ -98,10 +98,6 @@ namespace AutoPublish
             var localFilePathsTemp = Directory.GetFiles(_localDirPath, "*", _needCopyDescendantDir ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
             var localFilePaths = localFilePathsTemp.Where(localFilePath => !_excludeNames.Any(localFilePath.Contains)).ToList();
 
-            var localXmlPath = _localDirPath + "\\" + xmlFileName;
-
-            ThrowExceptionWhileXmlNotExist(localXmlPath);
-
             UpdateXmlWhileRemoteFileNotExist(localFilePaths, remoteFilePaths, tempRemoteXmlPath);
 
             UpdateXmlWhileRemoteFileExist(localFilePaths, remoteFilePaths, tempRemoteXmlPath);
@@ -167,20 +163,6 @@ namespace AutoPublish
             }
 
             return listStr.ToArray();
-        }
-
-        /// <summary>
-        /// 本地没有xml文件时抛出异常
-        /// </summary>
-        /// <param name="localXmlPath"></param>
-        /// <param name="remoteXmlPath"></param>
-        private static void ThrowExceptionWhileXmlNotExist(string localXmlPath)
-        {
-            if (!File.Exists(localXmlPath))
-            {
-                throw new Exception("本地UpdateList.xml文件不存在");
-            }
-
         }
 
         private void UpdateXmlWhileRemoteFileNotExist(List<string> localFilePaths, string[] remoteFilePaths,
