@@ -14,7 +14,7 @@ namespace AutoPublish
         private readonly string _userName = ConfigurationManager.AppSettings["UserName"];
         private readonly string _password = ConfigurationManager.AppSettings["Password"];
 
-        private readonly string _remoteDirPath = ConfigurationManager.AppSettings["RemoteDirPath"];
+        private readonly string _ftpUpdateFolder = ConfigurationManager.AppSettings["FtpUpdateFolder"];
         private readonly string _localDirPath = ConfigurationManager.AppSettings["LocalDirPath"];
 
         private readonly string _needCopyDescendantDirStr = ConfigurationManager.AppSettings["NeedCopyDescendantDir"];
@@ -32,7 +32,7 @@ namespace AutoPublish
         {
             bool.TryParse(_needCopyDescendantDirStr, out _needCopyDescendantDir);
             _exceptNames = _exceptNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-            _ftpTool = new FtpTool(_ftpUrl, _userName, _password, _remoteDirPath);
+            _ftpTool = new FtpTool(_ftpUrl, _userName, _password, _ftpUpdateFolder);
         }
 
         public void Publish()
@@ -55,21 +55,23 @@ namespace AutoPublish
                 Directory.CreateDirectory(localTempDir);
             }
 
+            var tempRemoteXmlPath = localTempDir + "\\" + xmlFileName;
+
             _ftpTool.DownLoadFile(tempDownloadDirName, xmlFileName);
             _ftpTool.ListFtpFiles(null, tempDownloadDirName, remoteDirFilePathsFileName);
             var remoteFilePaths = GetRemoteFilePaths(localTempDir + "\\" + remoteDirFilePathsFileName);
 
-            //var localFilePathsTemp = Directory.GetFiles(_localDirPath, "*", _needCopyDescendantDir ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
-            //var localFilePaths = localFilePathsTemp.Where(localFilePath => !_exceptNames.Any(localFilePath.Contains)).ToList();
+            var localFilePathsTemp = Directory.GetFiles(_localDirPath, "*", _needCopyDescendantDir ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+            var localFilePaths = localFilePathsTemp.Where(localFilePath => !_exceptNames.Any(localFilePath.Contains)).ToList();
 
-            //var localXmlPath = _localDirPath + "\\" + xmlFileName;
-            //var remoteXmlPath = _remoteDirPath + "\\" + xmlFileName;
+            var localXmlPath = _localDirPath + "\\" + xmlFileName;
+            var remoteXmlPath = _ftpUpdateFolder + "\\" + xmlFileName;
 
-            //ThrowExceptionWhileXmlNotExist(localXmlPath, remoteXmlPath);
+            ThrowExceptionWhileXmlNotExist(localXmlPath, remoteXmlPath);
 
-            //UpdateXmlWhileRemoteFileNotExist(localFilePaths, localXmlPath, remoteFilePaths, remoteXmlPath);
+            UpdateXmlWhileRemoteFileNotExist(localFilePaths, localXmlPath, remoteFilePaths, tempRemoteXmlPath);
 
-            //UpdateXmlWhileRemoteFileExist(localFilePaths, localXmlPath, remoteFilePaths, remoteXmlPath);
+            UpdateXmlWhileRemoteFileExist(localFilePaths, localXmlPath, remoteFilePaths, tempRemoteXmlPath);
 
             Console.WriteLine("发布完成！");
 
@@ -108,7 +110,7 @@ namespace AutoPublish
         }
 
         /// <summary>
-        /// 本地或远程没有xml文件时抛出异常
+        /// 本地没有xml文件时抛出异常
         /// </summary>
         /// <param name="localXmlPath"></param>
         /// <param name="remoteXmlPath"></param>
@@ -119,10 +121,24 @@ namespace AutoPublish
                 throw new Exception("本地UpdateList.xml文件不存在");
             }
 
-            if (!File.Exists(remoteXmlPath))
+        }
+
+        private void UpdateXmlWhileRemoteFileNotExist(List<string> localFilePaths, string localXmlPath, string[] remoteFilePaths,
+            string remoteXmlPath)
+        {
+            foreach (var localFilePath in localFilePaths)
             {
-                var error = "远程目录不存在Xml文件";
-                throw new Exception(error);
+                if (localFilePath == localXmlPath || localFilePath.Contains("\\Log\\")) continue; //忽略UpdateList.xml文件和Log文件夹
+
+                var fileName = GetNamePath(localFilePath, _localDirPath);
+                if (fileName != null && !remoteFilePaths.Any(q => q.EndsWith(fileName)))
+                {
+                    var remoteFilePath = _ftpUpdateFolder + fileName;
+                    CreateRemoteFileDirIfNeed(remoteFilePath);
+                    needUpdateFilePaths.Add(remoteFilePath);
+                    Common.ModifyXmlFile(remoteXmlPath, fileName);
+                    Console.WriteLine("新增文件：" + fileName);
+                }
             }
         }
 
@@ -140,7 +156,7 @@ namespace AutoPublish
                     if (remoteFilePath != null)
                     {
 
-                        if (_ftpTool.IsLocalFileNewerThanRemoteFile(_remoteDirPath + fileName, localFilePath + fileName))
+                        if (_ftpTool.IsLocalFileNewerThanRemoteFile(_ftpUpdateFolder + fileName, localFilePath + fileName))
                         {
                             needUpdateFilePaths.Add(remoteFilePath);
                             Common.ModifyXmlFile(remoteXmlPath, fileName);
@@ -151,33 +167,17 @@ namespace AutoPublish
             }
         }
 
-
-        private void UpdateXmlWhileRemoteFileNotExist(List<string> localFilePaths, string localXmlPath, string[] remoteFilePaths,
-            string remoteXmlPath)
-        {
-            foreach (var localFilePath in localFilePaths)
-            {
-                if (localFilePath == localXmlPath || localFilePath.Contains("\\Log\\")) continue; //忽略UpdateList.xml文件和Log文件夹
-
-                var fileName = GetNamePath(localFilePath, _localDirPath);
-                if (fileName != null && !remoteFilePaths.Any(q => q.EndsWith(fileName)))
-                {
-                    var remoteFilePath = _remoteDirPath + fileName;
-                    CreateRemoteFileDirIfNeed(remoteFilePath);
-                    needUpdateFilePaths.Add(remoteFilePath);
-                    Common.ModifyXmlFile(remoteXmlPath, fileName);
-                    Console.WriteLine("新增文件：" + fileName);
-                }
-            }
-        }
-
+        /// <summary>
+        /// 如果远程子目录不存在，需要创建子目录（暂未实现）
+        /// </summary>
+        /// <param name="remoteFilePath"></param>
         private static void CreateRemoteFileDirIfNeed(string remoteFilePath)
         {
-            var remoteFileDir = Path.GetDirectoryName(remoteFilePath);
-            if (remoteFileDir != null && !Directory.Exists(remoteFileDir))
-            {
-                Directory.CreateDirectory(remoteFileDir);
-            }
+            //var remoteFileDir = Path.GetDirectoryName(remoteFilePath);
+            //if (remoteFileDir != null && !Directory.Exists(remoteFileDir))
+            //{
+            //    Directory.CreateDirectory(remoteFileDir);
+            //}
         }
 
         /// <summary>
@@ -186,7 +186,7 @@ namespace AutoPublish
         /// <returns></returns>
         private bool CanRemoteFileConnected()
         {
-            if (string.IsNullOrEmpty(_remoteDirPath) || string.IsNullOrEmpty(_localDirPath))
+            if (string.IsNullOrEmpty(_ftpUpdateFolder) || string.IsNullOrEmpty(_localDirPath))
             {
                 throw new Exception("远程目录或本地目录为空");
             }
@@ -194,12 +194,12 @@ namespace AutoPublish
             NetHelper.DeleteNetUse(); //先删除所有远程连接
             string ip;
             string path;
-            NetHelper.GetIpAndPath(_remoteDirPath, out ip, out path);
+            NetHelper.GetIpAndPath(_ftpUpdateFolder, out ip, out path);
             if (!string.IsNullOrEmpty(ip)) //说明是共享目录，否则认为就是本地目录
             {
-                if (!NetHelper.NetUseDirectory(_remoteDirPath, _userName, _password))
+                if (!NetHelper.NetUseDirectory(_ftpUpdateFolder, _userName, _password))
                 {
-                    throw new Exception("无法访问远程共享目录：" + _remoteDirPath);
+                    throw new Exception("无法访问远程共享目录：" + _ftpUpdateFolder);
                 }
             }
 
