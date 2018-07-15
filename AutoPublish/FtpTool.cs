@@ -1,27 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.FtpClient;
-using System.Text;
-using System.Threading;
 using CanYou.WPF.Common.Controls.FileUploadUC.FileOperations;
 
 namespace AutoPublish
 {
     public class FtpTool
     {
-        private string _ftpurl;
+        private string _ftpUrl;
         private string _ftpUserName;
-        private string _ftpPasswd;
+        private string _ftpPassword;
         private string _ftpUpdateFolder;
 
         public FtpTool(string ftpurl, string ftpUserName, string ftpPasswd, string ftpUpdateFolder)
         {
-            _ftpurl = ftpurl;
+            _ftpUrl = ftpurl;
             _ftpUserName = ftpUserName;
-            _ftpPasswd = ftpPasswd;
+            _ftpPassword = ftpPasswd;
             _ftpUpdateFolder = ftpUpdateFolder;
         }
 
@@ -32,7 +29,7 @@ namespace AutoPublish
         /// <param name="fileName">要下载的文件名</param>
         public void DownLoadFile(string localTempDirPath, string fileName)
         {
-            var serverPath = _ftpurl + "/" + _ftpUpdateFolder;
+            var serverPath = _ftpUrl + "/" + _ftpUpdateFolder;
             var serverFilePath = serverPath + "/" + fileName;
 
             var localTempFilePath = localTempDirPath + "\\" + fileName;
@@ -40,7 +37,7 @@ namespace AutoPublish
             var reqFtp = (FtpWebRequest)WebRequest.Create(new Uri(serverFilePath));
             reqFtp.Method = WebRequestMethods.Ftp.DownloadFile;
             reqFtp.UseBinary = true;
-            reqFtp.Credentials = new NetworkCredential(_ftpUserName, _ftpPasswd);
+            reqFtp.Credentials = new NetworkCredential(_ftpUserName, _ftpPassword);
             var response = (FtpWebResponse)reqFtp.GetResponse();
             Stream ftpStream = response.GetResponseStream();
             try
@@ -74,14 +71,14 @@ namespace AutoPublish
         /// <param name="tempFileName">存放指定远程目录下所有文件名的临时文件</param>
         public void ListFtpFiles(string remoteDirName, string localTempDirPath, string tempFileName)
         {
-            var serverPath = _ftpurl + "/" + _ftpUpdateFolder + (string.IsNullOrEmpty(remoteDirName) ? "" : "/" + remoteDirName);
+            var serverPath = _ftpUrl + "/" + _ftpUpdateFolder + (string.IsNullOrEmpty(remoteDirName) ? "" : "/" + remoteDirName);
 
             var localTempFilePath = localTempDirPath + "\\" + tempFileName;
             var outputStream = new FileStream(localTempFilePath, FileMode.Create);
             var reqFtp = (FtpWebRequest)WebRequest.Create(new Uri(serverPath));
             reqFtp.Method = WebRequestMethods.Ftp.ListDirectory;
             reqFtp.UseBinary = true;
-            reqFtp.Credentials = new NetworkCredential(_ftpUserName, _ftpPasswd);
+            reqFtp.Credentials = new NetworkCredential(_ftpUserName, _ftpPassword);
             var response = (FtpWebResponse)reqFtp.GetResponse();
             Stream ftpStream = response.GetResponseStream();
             try
@@ -202,7 +199,7 @@ namespace AutoPublish
         /// <returns></returns>
         public bool IsLocalFileNewerThanRemoteFile(string serverFile, string localFile, FtpClient conn)
         {
-            serverFile = serverFile.Replace(_ftpurl, "/");
+            serverFile = serverFile.Replace(_ftpUrl, "/");
 
             var serverFileModifiedTime = conn.GetModifiedTime(serverFile);
             var localFileModifiedTime = (new FileInfo(localFile)).LastWriteTime;
@@ -215,10 +212,10 @@ namespace AutoPublish
 
         public void SetCredentials(FtpClient conn)
         {
-            string tempUrl = _ftpurl.Split(':')[1];
+            string tempUrl = _ftpUrl.Split(':')[1];
             //ftpClient的Host格式为“192.168.10.214”这种格式，默认端口是21
             conn.Host = tempUrl.Substring(2);
-            conn.Credentials = new NetworkCredential(_ftpUserName, _ftpPasswd);
+            conn.Credentials = new NetworkCredential(_ftpUserName, _ftpPassword);
         }
 
     }

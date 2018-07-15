@@ -12,18 +12,18 @@ namespace AutoPublish
     public class AutoPublish
     {
         private readonly string _ftpUrl = ConfigurationManager.AppSettings["FtpUrl"];
-        private readonly string _userName = ConfigurationManager.AppSettings["UserName"];
-        private readonly string _password = ConfigurationManager.AppSettings["Password"];
+        private readonly string _ftpUserName = ConfigurationManager.AppSettings["FtpUserName"];
+        private readonly string _ftpPassword = ConfigurationManager.AppSettings["FtpPassword"];
 
         private readonly string _ftpUpdateFolder = ConfigurationManager.AppSettings["FtpUpdateFolder"];
         private readonly string _localDirPath = ConfigurationManager.AppSettings["LocalDirPath"];
 
         private readonly string _needCopyDescendantDirStr = ConfigurationManager.AppSettings["NeedCopyDescendantDir"];
-        private readonly string _exceptNamesStr = ConfigurationManager.AppSettings["ExceptNames"];
+        private readonly string _excludeNamesStr = ConfigurationManager.AppSettings["ExcludeNames"];
 
         private readonly bool _needCopyDescendantDir;//是否包括子文件夹内的文件
 
-        private readonly string[] _exceptNames = { };
+        private readonly string[] _excludeNames = { };
 
         private readonly List<string> _needUpdateFilePaths = new List<string>();//需要更新的文件路径
 
@@ -32,17 +32,12 @@ namespace AutoPublish
         public AutoPublish()
         {
             bool.TryParse(_needCopyDescendantDirStr, out _needCopyDescendantDir);
-            _exceptNames = _exceptNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-            _ftpTool = new FtpTool(_ftpUrl, _userName, _password, _ftpUpdateFolder);
+            _excludeNames = _excludeNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            _ftpTool = new FtpTool(_ftpUrl, _ftpUserName, _ftpPassword, _ftpUpdateFolder);
         }
 
         public void Publish()
         {
-            //if (CanRemoteFileConnected())
-            //{
-            //    return;
-            //}
-
             Console.WriteLine("开始发布...");
 
             var xmlFileName = "UpdateList.xml";
@@ -64,7 +59,7 @@ namespace AutoPublish
             var remoteFilePaths = GetRemoteFilePaths(localTempDir + "\\" + remoteDirFilePathsFileName);
 
             var localFilePathsTemp = Directory.GetFiles(_localDirPath, "*", _needCopyDescendantDir ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
-            var localFilePaths = localFilePathsTemp.Where(localFilePath => !_exceptNames.Any(localFilePath.Contains)).ToList();
+            var localFilePaths = localFilePathsTemp.Where(localFilePath => !_excludeNames.Any(localFilePath.Contains)).ToList();
 
             var localXmlPath = _localDirPath + "\\" + xmlFileName;
 
@@ -221,7 +216,7 @@ namespace AutoPublish
             NetHelper.GetIpAndPath(_ftpUpdateFolder, out ip, out path);
             if (!string.IsNullOrEmpty(ip)) //说明是共享目录，否则认为就是本地目录
             {
-                if (!NetHelper.NetUseDirectory(_ftpUpdateFolder, _userName, _password))
+                if (!NetHelper.NetUseDirectory(_ftpUpdateFolder, _ftpUserName, _ftpPassword))
                 {
                     throw new Exception("无法访问远程共享目录：" + _ftpUpdateFolder);
                 }
