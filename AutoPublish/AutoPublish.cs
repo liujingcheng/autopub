@@ -59,6 +59,7 @@ namespace AutoPublish
             var tempRemoteXmlPath = localTempDir + "\\" + xmlFileName;
 
             _ftpTool.DownLoadFile(tempDownloadDirName, xmlFileName);
+
             _ftpTool.ListFtpFiles(null, tempDownloadDirName, remoteDirFilePathsFileName);
             var remoteFilePaths = GetRemoteFilePaths(localTempDir + "\\" + remoteDirFilePathsFileName);
 
@@ -66,15 +67,14 @@ namespace AutoPublish
             var localFilePaths = localFilePathsTemp.Where(localFilePath => !_exceptNames.Any(localFilePath.Contains)).ToList();
 
             var localXmlPath = _localDirPath + "\\" + xmlFileName;
-            var remoteXmlPath = _ftpUpdateFolder + "\\" + xmlFileName;
 
-            ThrowExceptionWhileXmlNotExist(localXmlPath, remoteXmlPath);
+            ThrowExceptionWhileXmlNotExist(localXmlPath);
 
-            UpdateXmlWhileRemoteFileNotExist(localFilePaths, localXmlPath, remoteFilePaths, tempRemoteXmlPath);
+            UpdateXmlWhileRemoteFileNotExist(localFilePaths, remoteFilePaths, tempRemoteXmlPath);
 
-            UpdateXmlWhileRemoteFileExist(localFilePaths, localXmlPath, remoteFilePaths, tempRemoteXmlPath);
+            UpdateXmlWhileRemoteFileExist(localFilePaths, remoteFilePaths, tempRemoteXmlPath);
 
-            UploadFiles();
+            UploadFiles(tempRemoteXmlPath);
 
             Console.WriteLine("发布完成！");
             Console.ReadKey();
@@ -84,12 +84,13 @@ namespace AutoPublish
         /// <summary>
         /// 上传文件
         /// </summary>
-        private void UploadFiles()
+        /// <param name="tempRemoteXmlPath">待上传到服务器上的xml文件（覆盖服务器上的xml）</param>
+        private void UploadFiles(string tempRemoteXmlPath)
         {
-            var filePaths = _needUpdateFilePaths.Select(p => _localDirPath + p.Replace(_ftpUpdateFolder, "")).ToArray();
+            var filePaths = _needUpdateFilePaths.Select(p => _localDirPath + p.Replace(_ftpUpdateFolder, "")).ToList();
+            filePaths.Add(tempRemoteXmlPath);//把更新好的xml文件一起上传
 
-
-            var uploadResults = _ftpTool.UploadFileList(filePaths, _ftpUpdateFolder);
+            var uploadResults = _ftpTool.UploadFileList(filePaths.ToArray(), _ftpUpdateFolder);
             foreach (var uploadResult in uploadResults)
             {
                 if (uploadResult.State == false)
@@ -136,7 +137,7 @@ namespace AutoPublish
         /// </summary>
         /// <param name="localXmlPath"></param>
         /// <param name="remoteXmlPath"></param>
-        private static void ThrowExceptionWhileXmlNotExist(string localXmlPath, string remoteXmlPath)
+        private static void ThrowExceptionWhileXmlNotExist(string localXmlPath)
         {
             if (!File.Exists(localXmlPath))
             {
@@ -145,13 +146,11 @@ namespace AutoPublish
 
         }
 
-        private void UpdateXmlWhileRemoteFileNotExist(List<string> localFilePaths, string localXmlPath, string[] remoteFilePaths,
+        private void UpdateXmlWhileRemoteFileNotExist(List<string> localFilePaths, string[] remoteFilePaths,
             string remoteXmlPath)
         {
             foreach (var localFilePath in localFilePaths)
             {
-                if (localFilePath == localXmlPath || localFilePath.Contains("\\Log\\")) continue; //忽略UpdateList.xml文件和Log文件夹
-
                 var fileName = GetNamePath(localFilePath, _localDirPath);
                 if (fileName != null && !remoteFilePaths.Any(q => q.EndsWith(fileName)))
                 {
@@ -164,7 +163,7 @@ namespace AutoPublish
             }
         }
 
-        private void UpdateXmlWhileRemoteFileExist(List<string> localFilePaths, string localXmlPath, string[] remoteFilePaths,
+        private void UpdateXmlWhileRemoteFileExist(List<string> localFilePaths, string[] remoteFilePaths,
             string remoteXmlPath)
         {
             using (FtpClient conn = new FtpClient())
@@ -173,9 +172,6 @@ namespace AutoPublish
 
                 foreach (var localFilePath in localFilePaths)
                 {
-                    if (localFilePath == localXmlPath || localFilePath.Contains("\\Log\\"))
-                        continue; //忽略UpdateList.xml文件和Log文件夹
-
                     var fileName = GetNamePath(localFilePath, _localDirPath);
                     if (fileName != null)
                     {
