@@ -82,6 +82,12 @@ namespace AutoPublish
         /// <param name="tempRemoteXmlPath">待上传到服务器上的xml文件（覆盖服务器上的xml）</param>
         private void UploadFiles(string tempRemoteXmlPath)
         {
+            if (_needUpdateFilePaths.Count == 0)
+            {
+                Console.WriteLine("没有要更新的文件！");
+                return;
+            }
+            Console.WriteLine("开始上传文件......");
             var filePaths = _needUpdateFilePaths.Select(p => _localDirPath + p.Replace(_ftpUpdateFolder, "")).ToList();
             filePaths.Add(tempRemoteXmlPath);//把更新好的xml文件一起上传
 
@@ -153,7 +159,6 @@ namespace AutoPublish
                     CreateRemoteFileDirIfNeed(remoteFilePath);
                     _needUpdateFilePaths.Add(remoteFilePath);
                     Common.ModifyXmlFile(remoteXmlPath, fileName);
-                    Console.WriteLine("新增文件：" + fileName);
                 }
             }
         }
@@ -178,7 +183,6 @@ namespace AutoPublish
                             {
                                 _needUpdateFilePaths.Add(remoteFilePath);
                                 Common.ModifyXmlFile(remoteXmlPath, fileName);
-                                Console.WriteLine("覆盖文件：" + fileName);
                             }
                         }
                     }

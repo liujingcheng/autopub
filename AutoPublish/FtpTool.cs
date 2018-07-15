@@ -122,6 +122,7 @@ namespace AutoPublish
                     foreach (string filePath in filePaths)
                     {
                         list.Add(UploadByFtpClient(filePath, targetDir, ftpClient));
+                        Console.WriteLine(Path.GetFileName(filePath));
                     }
                 }
             }
