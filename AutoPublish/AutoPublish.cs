@@ -72,7 +72,6 @@ namespace AutoPublish
             UploadFiles(tempRemoteXmlPath);
 
             Console.WriteLine("发布完成！");
-            Console.ReadKey();
 
         }
 
