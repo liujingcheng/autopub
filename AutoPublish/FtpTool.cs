@@ -107,103 +107,90 @@ namespace AutoPublish
 
         }
 
+
+        /// <summary>
+        /// 上传多文件
+        /// </summary>
+        /// <param name="filePaths">文件路径集合</param>
+        /// <param name="targetDir">目标文件夹</param>
+        /// <returns></returns>
+        public List<FileResult> UploadFileList(string[] filePaths, string targetDir)
+        {
+            List<FileResult> list = new List<FileResult>();
+            if (filePaths != null && filePaths.Length > 0)
+            {
+                using (FtpClient ftpClient = new FtpClient())
+                {
+                    SetCredentials(ftpClient);
+                    foreach (string filePath in filePaths)
+                    {
+                        list.Add(UploadByFtpClient(filePath, targetDir, ftpClient));
+                    }
+                }
+            }
+            return list;
+        }
+
         /// <summary>
         /// 上传文件,指定上传目标文件名
         /// </summary>
         /// modified by wyq on 2017-3-27
-        /// <param name="filePath"></param>
-        /// <param name="creatDirectory">目标文件夹</param>
-        /// <param name="targetName">目标文件名</param>
-        public FileResult UploadByFtpClient(string filePath, string creatDirectory, string targetName)
+        /// <param name="filePath">待上传的文件路径</param>
+        /// <param name="targetDir">目标文件夹</param>
+        /// <param name="ftpClient">ftp连接池</param>
+        public FileResult UploadByFtpClient(string filePath, string targetDir, FtpClient ftpClient)
         {
             if (string.IsNullOrEmpty(filePath))
                 return new FileResult(false, "上传失败，文件路径为空。", string.Empty);
 
-            using (FtpClient ftpClient = new FtpClient())
+            var targetName = Path.GetFileName(filePath);//目标文件名
+
+            //拼接上传目标文件路径
+            string uploadPath = targetDir + "/" + targetName;
+
+            //默认上传数据格式为二进制数据
+            FtpDataType type = FtpDataType.Binary;
+            //当文件类型为cs或txt文件时，用ASCII格式作为数据传输格式
+            if (Path.GetExtension(filePath).ToLower() == ".cs" || Path.GetExtension(filePath).ToLower() == ".txt")
+                type = FtpDataType.ASCII;
+            //判断目标文件夹是否存在
+            if (!ftpClient.DirectoryExists(targetDir.Trim()))
+                ftpClient.CreateDirectory(targetDir, true);
+            //定义上传文件为数据流
+            Stream istream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            //定义目标文件数据流
+            Stream ostream = ftpClient.OpenWrite(uploadPath, type);
+            //定义每次读取的字节流长度
+            const int buffLength = 2048;
+            //定义读取的数据容器
+            byte[] buf = new byte[buffLength];
+            //获取本次读取的数据长度
+            int contentLen = istream.Read(buf, 0, buffLength);
+            long hasUpLoad = contentLen;
+            try
             {
-                SetCredentials(ftpClient);
-                //拼接上传目标文件路径
-                string path = creatDirectory + targetName;
-
-                //默认上传数据格式为二进制数据
-                FtpDataType type = FtpDataType.Binary;
-                //当文件类型为cs或txt文件时，用ASCII格式作为数据传输格式
-                if (Path.GetExtension(filePath).ToLower() == ".cs" || Path.GetExtension(filePath).ToLower() == ".txt")
-                    type = FtpDataType.ASCII;
-                //判断目标文件夹是否存在
-                if (!ftpClient.DirectoryExists(creatDirectory.Trim()))
-                    ftpClient.CreateDirectory(creatDirectory, true);
-                //定义上传文件为数据流
-                Stream istream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                //定义目标文件数据流
-                Stream ostream = ftpClient.OpenWrite(path, type);
-                //定义每次读取的字节流长度
-                const int buffLength = 2048;
-                //定义读取的数据容器
-                byte[] buf = new byte[buffLength];
-                //获取本次读取的数据长度
-                int contentLen = istream.Read(buf, 0, buffLength);
-                long hasUpLoad = contentLen;
-                try
+                //循环写入目标数据，直到读取到的数据流长度为0
+                while (contentLen != 0)
                 {
-                    //循环写入目标数据，直到读取到的数据流长度为0
-                    while (contentLen != 0)
-                    {
-                        //将已读取的数据写入目标文件
-                        ostream.Write(buf, 0, contentLen);
-                        //从上次读取结束的位置开始重新读取数据
-                        contentLen = istream.Read(buf, 0, buffLength);
-                        //记录已经读取的数据长度
-                        hasUpLoad += contentLen;
-                    }
+                    //将已读取的数据写入目标文件
+                    ostream.Write(buf, 0, contentLen);
+                    //从上次读取结束的位置开始重新读取数据
+                    contentLen = istream.Read(buf, 0, buffLength);
+                    //记录已经读取的数据长度
+                    hasUpLoad += contentLen;
                 }
-                catch (Exception)
-                {
-                    return new FileResult(false, string.Format("上传{0}时连接不上远程服务器!\n", filePath), string.Empty);
-                }
-                finally
-                {
-                    ostream.Close();
-                    istream.Close();
-                }
-
-                return new FileResult(true, string.Empty, path, path);
             }
-        }
-
-        /// <summary>
-        /// 复制更新文件(失败的话重试几次)
-        /// </summary>
-        private static void CopyFileLoop(string source, string dest)
-        {
-            Exception ex = null;
-            int i = 0;
-            while (i < 2)
+            catch (Exception)
             {
-                try
-                {
-                    File.Copy(source, dest, true);
-                }
-                catch (Exception e)
-                {
-                    ex = e;
-                }
-                if (ex == null)
-                //没发生异常就不需要执行while循环重试
-                {
-                    break;
-                }
-
-                //等待3秒
-                Thread.Sleep(3000);
-                i++;
-
+                return new FileResult(false, string.Format("上传{0}时连接不上远程服务器!\n", filePath), string.Empty);
             }
-            if (ex != null)
-            //重试几次后还失败的话就往上抛异常中断操作
+            finally
             {
-                throw ex;
+                ostream.Close();
+                istream.Close();
             }
+
+            return new FileResult(true, string.Empty, uploadPath, uploadPath);
         }
 
         /// <summary>

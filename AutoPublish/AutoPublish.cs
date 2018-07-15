@@ -74,9 +74,29 @@ namespace AutoPublish
 
             UpdateXmlWhileRemoteFileExist(localFilePaths, localXmlPath, remoteFilePaths, tempRemoteXmlPath);
 
+            UploadFiles();
+
             Console.WriteLine("发布完成！");
             Console.ReadKey();
 
+        }
+
+        /// <summary>
+        /// 上传文件
+        /// </summary>
+        private void UploadFiles()
+        {
+            var filePaths = _needUpdateFilePaths.Select(p => _localDirPath + p.Replace(_ftpUpdateFolder, "")).ToArray();
+
+
+            var uploadResults = _ftpTool.UploadFileList(filePaths, _ftpUpdateFolder);
+            foreach (var uploadResult in uploadResults)
+            {
+                if (uploadResult.State == false)
+                {
+                    throw new Exception(uploadResult.Url + uploadResult.Path + "上传失败！" + uploadResult.FailureMessage);
+                }
+            }
         }
 
         /// <summary>
@@ -100,7 +120,7 @@ namespace AutoPublish
                     {
                         continue;
                     }
-                    listStr.Add(str.Replace("/","\\"));
+                    listStr.Add(str.Replace("/", "\\"));
                 }
             }
             finally
