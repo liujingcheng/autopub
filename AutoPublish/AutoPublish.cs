@@ -11,25 +11,62 @@ namespace AutoPublish
 {
     public class AutoPublish
     {
-        private readonly string _ftpUrl = ConfigurationManager.AppSettings["FtpUrl"];
-        private readonly string _ftpUserName = ConfigurationManager.AppSettings["FtpUserName"];
-        private readonly string _ftpPassword = ConfigurationManager.AppSettings["FtpPassword"];
-
-        private readonly string _ftpUpdateFolder = ConfigurationManager.AppSettings["FtpUpdateFolder"];
-        private readonly string _localDirPath = ConfigurationManager.AppSettings["LocalDirPath"];
-
-        private readonly string _needCopyDescendantDirStr = ConfigurationManager.AppSettings["NeedCopyDescendantDir"];
-        private readonly string _excludeNamesStr = ConfigurationManager.AppSettings["ExcludeNames"];
-
-        private readonly bool _needCopyDescendantDir;//是否包括子文件夹内的文件
-
-        private readonly string[] _excludeNames = { };
-
-        private readonly List<string> _needUpdateFilePaths = new List<string>();//需要更新的文件路径
-
         private FtpTool _ftpTool;
 
+        /// <summary>
+        /// 本地目录（生成文件的地方）
+        /// </summary>
+        private readonly string _localDirPath;
+
+        private readonly string _ftpUrl;
+        private readonly string _ftpUserName;
+        private readonly string _ftpPassword;
+
+        /// <summary>
+        /// ftp发布文件更新目录
+        /// </summary>
+        string _ftpUpdateFolder = ConfigurationManager.AppSettings["FtpUpdateFolder"];
+        /// <summary>
+        /// 是否包括子孙文件夹内的文件
+        /// </summary>
+        string _needCopyDescendantDirStr = ConfigurationManager.AppSettings["NeedCopyDescendantDir"];
+        /// <summary>
+        /// 要排除的名称（目录或文件名都可，逗号分割）
+        /// </summary>
+        string _excludeNamesStr = ConfigurationManager.AppSettings["ExcludeNames"];
+        /// <summary>
+        /// 要排除的名称（目录或文件名都可）
+        /// </summary>
+        private string[] _excludeNames = { };
+        /// <summary>
+        /// 是否包括子孙文件夹内的文件
+        /// </summary>
+        private bool _needCopyDescendantDir;
+        /// <summary>
+        /// 需要更新的文件路径
+        /// </summary>
+        private readonly List<string> _needUpdateFilePaths = new List<string>();
+
+        public AutoPublish(string localDirPath, string ftpUrl, string ftpUserName, string ftpPassword)
+        {
+            _localDirPath = localDirPath;
+            _ftpUrl = ftpUrl;
+            _ftpUserName = ftpUserName;
+            _ftpPassword = ftpPassword;
+            Init();
+        }
+
         public AutoPublish()
+        {
+            _localDirPath = ConfigurationManager.AppSettings["LocalDirPath"];
+            _ftpUrl = ConfigurationManager.AppSettings["FtpUrl"];
+            _ftpUserName = ConfigurationManager.AppSettings["FtpUserName"];
+            _ftpPassword = ConfigurationManager.AppSettings["FtpPassword"];
+
+            Init();
+        }
+
+        public void Init()
         {
             bool.TryParse(_needCopyDescendantDirStr, out _needCopyDescendantDir);
             _excludeNames = _excludeNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
