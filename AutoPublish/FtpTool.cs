@@ -72,7 +72,7 @@ namespace AutoPublish
         /// <param name="remoteDirName">远程ftp根目录下的子目录（为空则视为根目录）</param>
         /// <param name="localTempDirPath">本地临时文件夹路径</param>
         /// <param name="tempFileName">存放指定远程目录下所有文件名的临时文件</param>
-        public void ListFtpFiles(string remoteDirName, string localTempDirPath,  string tempFileName)
+        public void ListFtpFiles(string remoteDirName, string localTempDirPath, string tempFileName)
         {
             var serverPath = _ftpurl + "/" + _ftpUpdateFolder + (string.IsNullOrEmpty(remoteDirName) ? "" : "/" + remoteDirName);
 
@@ -213,24 +213,20 @@ namespace AutoPublish
         /// <param name="serverFile">服务器文件</param>
         /// <param name="localFile">本地文件</param>
         /// <returns></returns>
-        public bool IsLocalFileNewerThanRemoteFile(string serverFile, string localFile)
+        public bool IsLocalFileNewerThanRemoteFile(string serverFile, string localFile, FtpClient conn)
         {
-            using (FtpClient conn = new FtpClient())
-            {
-                serverFile = serverFile.Replace(_ftpurl, "/");
-                SetCredentials(conn);
+            serverFile = serverFile.Replace(_ftpurl, "/");
 
-                var serverFileModifiedTime = conn.GetModifiedTime(serverFile);
-                var localFileModifiedTime = (new FileInfo(localFile)).LastWriteTime;
-                if (serverFileModifiedTime < localFileModifiedTime)
-                {
-                    return true;
-                }
+            var serverFileModifiedTime = conn.GetModifiedTime(serverFile);
+            var localFileModifiedTime = (new FileInfo(localFile)).LastWriteTime;
+            if (serverFileModifiedTime < localFileModifiedTime)
+            {
+                return true;
             }
             return false;
         }
 
-        private void SetCredentials(FtpClient conn)
+        public void SetCredentials(FtpClient conn)
         {
             string tempUrl = _ftpurl.Split(':')[1];
             //ftpClient的Host格式为“192.168.10.214”这种格式，默认端口是21

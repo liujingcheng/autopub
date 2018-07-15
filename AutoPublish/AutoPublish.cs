@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
 using System.Linq;
+using System.Net.FtpClient;
 using System.Text;
 using System.Xml;
 
@@ -24,7 +25,7 @@ namespace AutoPublish
 
         private readonly string[] _exceptNames = { };
 
-        private readonly List<string> needUpdateFilePaths = new List<string>();//需要更新的文件路径
+        private readonly List<string> _needUpdateFilePaths = new List<string>();//需要更新的文件路径
 
         private FtpTool _ftpTool;
 
@@ -74,6 +75,7 @@ namespace AutoPublish
             UpdateXmlWhileRemoteFileExist(localFilePaths, localXmlPath, remoteFilePaths, tempRemoteXmlPath);
 
             Console.WriteLine("发布完成！");
+            Console.ReadKey();
 
         }
 
@@ -98,7 +100,7 @@ namespace AutoPublish
                     {
                         continue;
                     }
-                    listStr.Add(str);
+                    listStr.Add(str.Replace("/","\\"));
                 }
             }
             finally
@@ -135,7 +137,7 @@ namespace AutoPublish
                 {
                     var remoteFilePath = _ftpUpdateFolder + fileName;
                     CreateRemoteFileDirIfNeed(remoteFilePath);
-                    needUpdateFilePaths.Add(remoteFilePath);
+                    _needUpdateFilePaths.Add(remoteFilePath);
                     Common.ModifyXmlFile(remoteXmlPath, fileName);
                     Console.WriteLine("新增文件：" + fileName);
                 }
@@ -145,22 +147,28 @@ namespace AutoPublish
         private void UpdateXmlWhileRemoteFileExist(List<string> localFilePaths, string localXmlPath, string[] remoteFilePaths,
             string remoteXmlPath)
         {
-            foreach (var localFilePath in localFilePaths)
+            using (FtpClient conn = new FtpClient())
             {
-                if (localFilePath == localXmlPath || localFilePath.Contains("\\Log\\")) continue; //忽略UpdateList.xml文件和Log文件夹
+                _ftpTool.SetCredentials(conn);
 
-                var fileName = GetNamePath(localFilePath, _localDirPath);
-                if (fileName != null)
+                foreach (var localFilePath in localFilePaths)
                 {
-                    var remoteFilePath = remoteFilePaths.FirstOrDefault(q => q.EndsWith(fileName));
-                    if (remoteFilePath != null)
-                    {
+                    if (localFilePath == localXmlPath || localFilePath.Contains("\\Log\\"))
+                        continue; //忽略UpdateList.xml文件和Log文件夹
 
-                        if (_ftpTool.IsLocalFileNewerThanRemoteFile(_ftpUpdateFolder + fileName, localFilePath + fileName))
+                    var fileName = GetNamePath(localFilePath, _localDirPath);
+                    if (fileName != null)
+                    {
+                        var remoteFilePath = remoteFilePaths.FirstOrDefault(q => q.EndsWith(fileName));
+                        if (remoteFilePath != null)
                         {
-                            needUpdateFilePaths.Add(remoteFilePath);
-                            Common.ModifyXmlFile(remoteXmlPath, fileName);
-                            Console.WriteLine("覆盖文件：" + fileName);
+                            if (_ftpTool.IsLocalFileNewerThanRemoteFile(_ftpUpdateFolder + fileName,
+                                localFilePath, conn))
+                            {
+                                _needUpdateFilePaths.Add(remoteFilePath);
+                                Common.ModifyXmlFile(remoteXmlPath, fileName);
+                                Console.WriteLine("覆盖文件：" + fileName);
+                            }
                         }
                     }
                 }
