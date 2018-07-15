@@ -11,9 +11,10 @@ namespace AutoPublish
         {
             try
             {
-                //var publish = new AutoPublish();
-                var publish = new PsPublish();
-                publish.Publish(args[0], args[1]);
+                var publish = new AutoPublish();
+                publish.Publish();
+                //var publish = new PsPublish();
+                //publish.Publish(args[0], args[1]);
             }
             catch (Exception ex)
             {

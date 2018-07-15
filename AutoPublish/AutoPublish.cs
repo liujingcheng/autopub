@@ -30,25 +30,9 @@ namespace AutoPublish
 
         public void Publish()
         {
-            if (string.IsNullOrEmpty(_remoteDirPath) || string.IsNullOrEmpty(_localDirPath))
+            if (CanRemoteFileConnected())
             {
-                Console.WriteLine("远程目录或本地目录为空");
-                Console.ReadLine();
                 return;
-            }
-
-            NetHelper.DeleteNetUse();//先删除所有远程连接
-            string ip;
-            string path;
-            NetHelper.GetIpAndPath(_remoteDirPath, out ip, out path);
-            if (!string.IsNullOrEmpty(ip))//说明是共享目录，否则认为就是本地目录
-            {
-                if (!NetHelper.NetUseDirectory(_remoteDirPath, _userName, _password))
-                {
-                    Console.WriteLine("无法访问远程共享目录：" + _remoteDirPath);
-                    Console.ReadLine();
-                    return;
-                }
             }
 
             Console.WriteLine("开始发布...");
@@ -58,30 +42,16 @@ namespace AutoPublish
 
             var remoteFilePaths = Directory.GetFiles(_remoteDirPath, "*", _needCopyDescendantDir ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
 
-            var localXmlPath = _localDirPath + "\\UpdateList.xml";
-            var remoteXmlPath = _remoteDirPath + "\\UpdateList.xml";
-            if (!File.Exists(localXmlPath))
+            if (IsLocalXmlFileExist(out var localXmlPath))
             {
-                Console.WriteLine("本地UpdateList.xml文件不存在");
-                Console.ReadLine();
                 return;
             }
 
+            var remoteXmlPath = _remoteDirPath + "\\UpdateList.xml";
             if (!File.Exists(remoteXmlPath))
+            //远程目录不存在Xml文件的情形暂不考虑
             {
-                var localXmlFileName = GetNamePath(localXmlPath, _localDirPath);
-                var localXmlFileInfo = new FileInfo(localXmlPath);
-                remoteXmlPath = _remoteDirPath + localXmlFileName;//为空时要补上
-                localXmlFileInfo.CopyTo(remoteXmlPath);
-                Console.WriteLine("远程目录不存在Xml文件，拷贝本地UpdateList.xml文件到远程目录");
-                foreach (var localFilePath in localFilePaths)
-                {
-                    if (localFilePath == localXmlPath || localFilePath.Contains("\\Log\\")) continue;//忽略UpdateList.xml文件和Log文件夹
-
-                    var localFileName = GetNamePath(localFilePath, _localDirPath);
-                    Common.ModifyXmlFile(remoteXmlPath, localFileName);
-                    Console.WriteLine("更新xml节点：" + localFileName);
-                }
+                throw new Exception("远程目录不存在Xml文件");
             }
 
             foreach (var localFilePath in localFilePaths)
@@ -132,6 +102,49 @@ namespace AutoPublish
             Console.WriteLine("发布完成！按回车键退出...");
             Console.ReadLine();
 
+        }
+
+        private bool IsLocalXmlFileExist(out string localXmlPath)
+        {
+            localXmlPath = _localDirPath + "\\UpdateList.xml";
+            if (!File.Exists(localXmlPath))
+            {
+                Console.WriteLine("本地UpdateList.xml文件不存在");
+                Console.ReadLine();
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 远程文件是否正常连通
+        /// </summary>
+        /// <returns></returns>
+        private bool CanRemoteFileConnected()
+        {
+            if (string.IsNullOrEmpty(_remoteDirPath) || string.IsNullOrEmpty(_localDirPath))
+            {
+                Console.WriteLine("远程目录或本地目录为空");
+                Console.ReadLine();
+                return true;
+            }
+
+            NetHelper.DeleteNetUse(); //先删除所有远程连接
+            string ip;
+            string path;
+            NetHelper.GetIpAndPath(_remoteDirPath, out ip, out path);
+            if (!string.IsNullOrEmpty(ip)) //说明是共享目录，否则认为就是本地目录
+            {
+                if (!NetHelper.NetUseDirectory(_remoteDirPath, _userName, _password))
+                {
+                    Console.WriteLine("无法访问远程共享目录：" + _remoteDirPath);
+                    Console.ReadLine();
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
