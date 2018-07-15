@@ -25,7 +25,7 @@ namespace AutoPublish
         /// <summary>
         /// ftp发布文件更新目录
         /// </summary>
-        string _ftpUpdateFolder = ConfigurationManager.AppSettings["FtpUpdateFolder"];
+        string _ftpUpdateFolder;
         /// <summary>
         /// 是否包括子孙文件夹内的文件
         /// </summary>
@@ -47,12 +47,13 @@ namespace AutoPublish
         /// </summary>
         private readonly List<string> _needUpdateFilePaths = new List<string>();
 
-        public AutoPublish(string localDirPath, string ftpUrl, string ftpUserName, string ftpPassword)
+        public AutoPublish(string localDirPath, string ftpUrl, string ftpUserName, string ftpPassword, string ftpUpdateFolder)
         {
             _localDirPath = localDirPath;
             _ftpUrl = ftpUrl;
             _ftpUserName = ftpUserName;
             _ftpPassword = ftpPassword;
+            _ftpUpdateFolder = ftpUpdateFolder;
             Init();
         }
 
@@ -62,6 +63,7 @@ namespace AutoPublish
             _ftpUrl = ConfigurationManager.AppSettings["FtpUrl"];
             _ftpUserName = ConfigurationManager.AppSettings["FtpUserName"];
             _ftpPassword = ConfigurationManager.AppSettings["FtpPassword"];
+            _ftpUpdateFolder = ConfigurationManager.AppSettings["FtpUpdateFolder"];
 
             Init();
         }
