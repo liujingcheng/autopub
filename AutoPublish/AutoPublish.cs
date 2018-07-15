@@ -22,6 +22,8 @@ namespace AutoPublish
 
         private readonly string[] _exceptNames = { };
 
+        private readonly List<string> needUpdateFilePaths = new List<string>();//需要更新的文件路径
+
         public AutoPublish()
         {
             bool.TryParse(_needCopyDescendantDirStr, out _needCopyDescendantDir);
@@ -38,45 +40,47 @@ namespace AutoPublish
             Console.WriteLine("开始发布...");
 
             var localFilePathsTemp = Directory.GetFiles(_localDirPath, "*", _needCopyDescendantDir ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
-            List<string> localFilePaths = localFilePathsTemp.Where(localFilePath => !_exceptNames.Any(localFilePath.Contains)).ToList();
-
+            var localFilePaths = localFilePathsTemp.Where(localFilePath => !_exceptNames.Any(localFilePath.Contains)).ToList();
             var remoteFilePaths = Directory.GetFiles(_remoteDirPath, "*", _needCopyDescendantDir ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
 
-            if (IsLocalXmlFileExist(out var localXmlPath))
-            {
-                return;
-            }
-
+            var localXmlPath = _localDirPath + "\\UpdateList.xml";
             var remoteXmlPath = _remoteDirPath + "\\UpdateList.xml";
+
+            ThrowExceptionWhileXmlNotExist(localXmlPath, remoteXmlPath);
+
+            UpdateXmlWhileRemoteFileNotExist(localFilePaths, localXmlPath, remoteFilePaths, remoteXmlPath);
+
+            UpdateXmlWhileRemoteFileExist(localFilePaths, localXmlPath, remoteFilePaths, remoteXmlPath);
+
+            Console.WriteLine("发布完成！");
+
+        }
+
+        /// <summary>
+        /// 本地或远程没有xml文件时抛出异常
+        /// </summary>
+        /// <param name="localXmlPath"></param>
+        /// <param name="remoteXmlPath"></param>
+        private static void ThrowExceptionWhileXmlNotExist(string localXmlPath, string remoteXmlPath)
+        {
+            if (!File.Exists(localXmlPath))
+            {
+                throw new Exception("本地UpdateList.xml文件不存在");
+            }
+
             if (!File.Exists(remoteXmlPath))
-            //远程目录不存在Xml文件的情形暂不考虑
             {
-                throw new Exception("远程目录不存在Xml文件");
+                var error = "远程目录不存在Xml文件";
+                throw new Exception(error);
             }
+        }
 
+        private void UpdateXmlWhileRemoteFileExist(List<string> localFilePaths, string localXmlPath, string[] remoteFilePaths,
+            string remoteXmlPath)
+        {
             foreach (var localFilePath in localFilePaths)
             {
-                if (localFilePath == localXmlPath || localFilePath.Contains("\\Log\\")) continue;//忽略UpdateList.xml文件和Log文件夹
-
-                var fileName = GetNamePath(localFilePath, _localDirPath);
-                if (fileName != null && !remoteFilePaths.Any(q => q.EndsWith(fileName)))
-                {
-                    var fileInfo = new FileInfo(localFilePath);
-                    var remoteFilePath = _remoteDirPath + fileName;
-                    var remoteFileDir = Path.GetDirectoryName(remoteFilePath);
-                    if (remoteFileDir != null && !Directory.Exists(remoteFileDir))
-                    {
-                        Directory.CreateDirectory(remoteFileDir);
-                    }
-                    fileInfo.CopyTo(_remoteDirPath + fileName);
-                    Console.WriteLine("拷贝文件：" + fileName);
-                    Common.ModifyXmlFile(remoteXmlPath, fileName);
-                }
-            }
-
-            foreach (var localFilePath in localFilePaths)
-            {
-                if (localFilePath == localXmlPath || localFilePath.Contains("\\Log\\")) continue;//忽略UpdateList.xml文件和Log文件夹
+                if (localFilePath == localXmlPath || localFilePath.Contains("\\Log\\")) continue; //忽略UpdateList.xml文件和Log文件夹
 
                 var fileName = GetNamePath(localFilePath, _localDirPath);
                 if (fileName != null)
@@ -91,30 +95,40 @@ namespace AutoPublish
                             localFileInfo.LastWriteTime > remoteFileInfo.LastWriteTime)
                         {
                             localFileInfo.CopyTo(_remoteDirPath + fileName, true);
-                            Console.WriteLine("覆盖文件：" + fileName);
                             Common.ModifyXmlFile(remoteXmlPath, fileName);
+                            Console.WriteLine("覆盖文件：" + fileName);
                         }
-
                     }
                 }
             }
-
-            Console.WriteLine("发布完成！按回车键退出...");
-            Console.ReadLine();
-
         }
 
-        private bool IsLocalXmlFileExist(out string localXmlPath)
+        private void UpdateXmlWhileRemoteFileNotExist(List<string> localFilePaths, string localXmlPath, string[] remoteFilePaths,
+            string remoteXmlPath)
         {
-            localXmlPath = _localDirPath + "\\UpdateList.xml";
-            if (!File.Exists(localXmlPath))
+            foreach (var localFilePath in localFilePaths)
             {
-                Console.WriteLine("本地UpdateList.xml文件不存在");
-                Console.ReadLine();
-                return true;
-            }
+                if (localFilePath == localXmlPath || localFilePath.Contains("\\Log\\")) continue; //忽略UpdateList.xml文件和Log文件夹
 
-            return false;
+                var fileName = GetNamePath(localFilePath, _localDirPath);
+                if (fileName != null && !remoteFilePaths.Any(q => q.EndsWith(fileName)))
+                {
+                    var remoteFilePath = _remoteDirPath + fileName;
+                    CreateRemoteFileDirIfNeed(remoteFilePath);
+                    needUpdateFilePaths.Add(remoteFilePath);
+                    Common.ModifyXmlFile(remoteXmlPath, fileName);
+                    Console.WriteLine("新增文件：" + fileName);
+                }
+            }
+        }
+
+        private static void CreateRemoteFileDirIfNeed(string remoteFilePath)
+        {
+            var remoteFileDir = Path.GetDirectoryName(remoteFilePath);
+            if (remoteFileDir != null && !Directory.Exists(remoteFileDir))
+            {
+                Directory.CreateDirectory(remoteFileDir);
+            }
         }
 
         /// <summary>
