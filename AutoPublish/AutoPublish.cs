@@ -35,9 +35,17 @@ namespace AutoPublish
         /// </summary>
         string _excludeNamesStr = ConfigurationManager.AppSettings["ExcludeNames"];
         /// <summary>
+        /// 要包含的目录路径（逗号分割）
+        /// </summary>
+        string _includeDirPathsStr = ConfigurationManager.AppSettings["IncludeDirPaths"];
+        /// <summary>
         /// 要排除的名称（目录或文件名都可）
         /// </summary>
         private string[] _excludeNames = { };
+        /// <summary>
+        /// 要包含的目录路径
+        /// </summary>
+        private string[] _includeDirPaths = { };
         /// <summary>
         /// 是否包括子孙文件夹内的文件
         /// </summary>
@@ -72,6 +80,7 @@ namespace AutoPublish
         {
             bool.TryParse(_needCopyDescendantDirStr, out _needCopyDescendantDir);
             _excludeNames = _excludeNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            _includeDirPaths = _includeDirPathsStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             _ftpTool = new FtpTool(_ftpUrl, _ftpUserName, _ftpPassword, _ftpUpdateFolder);
         }
 
@@ -95,6 +104,7 @@ namespace AutoPublish
             _ftpTool.DownLoadFile(tempDownloadDirName, xmlFileName);
 
             _ftpTool.ListFtpFiles(null, tempDownloadDirName, remoteDirFilePathsFileName);
+
             var remoteFilePaths = GetRemoteFilePaths(localTempDir + "\\" + remoteDirFilePathsFileName);
 
             var localFilePathsTemp = Directory.GetFiles(_localDirPath, "*", _needCopyDescendantDir ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
@@ -151,8 +161,12 @@ namespace AutoPublish
                 while (!sr.EndOfStream)
                 {
                     var str = sr.ReadLine();
-                    if (str == null || !str.Contains("."))
-                    //暂不把目录包含进来
+                    if (string.IsNullOrWhiteSpace(str))
+                    {
+                        continue;
+                    }
+                    if (IsDirPath(str) && !_includeDirPaths.Contains(str))
+                    //不是指定要被包含的目录不要
                     {
                         continue;
                     }
@@ -165,6 +179,21 @@ namespace AutoPublish
             }
 
             return listStr.ToArray();
+        }
+
+        /// <summary>
+        /// 给定路径是否是目录
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        private bool IsDirPath(string path)
+        {
+            if (path.Contains("."))
+            //.代表有后缀名的文件
+            {
+                return false;
+            }
+            return true;
         }
 
         private void UpdateXmlWhileRemoteFileNotExist(List<string> localFilePaths, string[] remoteFilePaths,
@@ -216,37 +245,12 @@ namespace AutoPublish
         /// <param name="remoteFilePath"></param>
         private static void CreateRemoteFileDirIfNeed(string remoteFilePath)
         {
+            //TODO:待实现
             //var remoteFileDir = Path.GetDirectoryName(remoteFilePath);
             //if (remoteFileDir != null && !Directory.Exists(remoteFileDir))
             //{
             //    Directory.CreateDirectory(remoteFileDir);
             //}
-        }
-
-        /// <summary>
-        /// 远程文件是否正常连通
-        /// </summary>
-        /// <returns></returns>
-        private bool CanRemoteFileConnected()
-        {
-            if (string.IsNullOrEmpty(_ftpUpdateFolder) || string.IsNullOrEmpty(_localDirPath))
-            {
-                throw new Exception("远程目录或本地目录为空");
-            }
-
-            NetHelper.DeleteNetUse(); //先删除所有远程连接
-            string ip;
-            string path;
-            NetHelper.GetIpAndPath(_ftpUpdateFolder, out ip, out path);
-            if (!string.IsNullOrEmpty(ip)) //说明是共享目录，否则认为就是本地目录
-            {
-                if (!NetHelper.NetUseDirectory(_ftpUpdateFolder, _ftpUserName, _ftpPassword))
-                {
-                    throw new Exception("无法访问远程共享目录：" + _ftpUpdateFolder);
-                }
-            }
-
-            return false;
         }
 
         /// <summary>
