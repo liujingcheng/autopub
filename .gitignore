@@ -55,7 +55,6 @@ upload/
 ~$*
 
 #NuGet
-.nuget
 packages/
 UploadFile/
 
