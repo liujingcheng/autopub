@@ -308,17 +308,13 @@ namespace AutoPublish
         }
 
         /// <summary>
-        /// 如果远程子目录不存在，需要创建子目录（暂未实现）
+        /// 如果远程子目录不存在，需要创建子目录
         /// </summary>
         /// <param name="remoteFilePath"></param>
-        private static void CreateRemoteFileDirIfNeed(string remoteFilePath)
+        private void CreateRemoteFileDirIfNeed(string remoteFilePath)
         {
-            //TODO:待实现
-            //var remoteFileDir = Path.GetDirectoryName(remoteFilePath);
-            //if (remoteFileDir != null && !Directory.Exists(remoteFileDir))
-            //{
-            //    Directory.CreateDirectory(remoteFileDir);
-            //}
+            var ftpDirPath = remoteFilePath.Replace("\\", "/");
+            _ftpTool.CreateDirectoryIfNotExist(ftpDirPath);
         }
 
         /// <summary>

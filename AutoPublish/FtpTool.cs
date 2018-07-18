@@ -114,6 +114,22 @@ namespace AutoPublish
             return reqFtp;
         }
 
+        /// <summary>
+        /// 如果指定目录不存在则创建目录
+        /// </summary>
+        /// <param name="dirPath"></param>
+        public void CreateDirectoryIfNotExist(string dirPath)
+        {
+            using (FtpClient conn = new FtpClient())
+            {
+                conn.Host = _ftpUrl;
+                conn.Credentials = new NetworkCredential(_ftpUserName, _ftpPassword);
+                if (!conn.DirectoryExists(dirPath))
+                {
+                    conn.CreateDirectory(dirPath, true);
+                }
+            }
+        }
 
         /// <summary>
         /// 上传多文件
