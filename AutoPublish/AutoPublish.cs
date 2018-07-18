@@ -103,11 +103,16 @@ namespace AutoPublish
 
             _ftpTool.DownLoadFile(tempDownloadDirName, xmlFileName);
 
-            var remoteFilePaths = GetRemoteFilePathsRecursive(tempDownloadDirName, tempRemoteDirFilePathsFileName, localTempDir);
+            var remoteFilePaths = GetRemoteFilePathsRecursive("/" + _ftpUpdateFolder, tempDownloadDirName, tempRemoteDirFilePathsFileName, localTempDir);
+
+            remoteFilePaths = remoteFilePaths.Select(p => p.Replace("/", "\\")).ToList();//把首字符斜杠改成反斜杠
 
             var remoteFilePathsArray = remoteFilePaths.ToArray();
             var localFilePathsTemp = Directory.GetFiles(_localDirPath, "*", _needCopyDescendantDir ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
-            var localFilePaths = localFilePathsTemp.Where(localFilePath => !_excludeNames.Any(localFilePath.Contains)).ToList();
+            var localFilePaths = localFilePathsTemp.Where(localFilePath =>
+                !IsDirPath(localFilePath) && !_excludeNames.Any(localFilePath.Contains)
+                || IsDirPath(localFilePath) && IsContainedByIncludeDirPaths(localFilePath))
+                .ToList();
 
             UpdateXmlWhileRemoteFileNotExist(localFilePaths, remoteFilePathsArray, tempRemoteXmlPath);
 
@@ -119,21 +124,41 @@ namespace AutoPublish
 
         }
 
-
-        private List<string> GetRemoteFilePathsRecursive(string tempDownloadDirName, string tempRemoteDirFilePathsFileName,
+        /// <summary>
+        /// 递归获取远程路径数组
+        /// </summary>
+        /// <param name="dirPath">远程目录路径</param>
+        /// <param name="tempDownloadDirName">临时下载目录</param>
+        /// <param name="tempRemoteDirFilePathsFileName">临时文件名</param>
+        /// <param name="localTempDir">本地临时目录</param>
+        /// <returns></returns>
+        private List<string> GetRemoteFilePathsRecursive(string dirPath, string tempDownloadDirName, string tempRemoteDirFilePathsFileName,
             string localTempDir)
         {
-            _ftpTool.ListFtpFiles(null, tempDownloadDirName, tempRemoteDirFilePathsFileName);
+            _ftpTool.ListFtpFiles(dirPath, tempDownloadDirName, tempRemoteDirFilePathsFileName);
             var remoteFilePaths = GetRemoteFilePaths(localTempDir + "\\" + tempRemoteDirFilePathsFileName);
 
-            var list = new List<string>();
-            foreach (var dirPath in remoteFilePaths.Select(IsDirPath))
+            for (int i = 0; i < remoteFilePaths.Count; i++)
             {
-                var childList =
-                    GetRemoteFilePathsRecursive(tempDownloadDirName, tempRemoteDirFilePathsFileName, localTempDir);
+                var path = remoteFilePaths[i];
+                path = path.Substring(path.IndexOf("\\"));
+                remoteFilePaths[i] = dirPath + path;
             }
 
-            return remoteFilePaths;
+            var list = new List<string>();
+            list.AddRange(remoteFilePaths);
+
+            foreach (var childDirPath in remoteFilePaths.Where(IsDirPath))
+            {
+                var childList =
+                    GetRemoteFilePathsRecursive(childDirPath, tempDownloadDirName, tempRemoteDirFilePathsFileName, localTempDir);
+                if (childList.Count > 0)
+                {
+                    list.AddRange(childList);
+                }
+            }
+
+            return list;
         }
 
         /// <summary>
@@ -181,12 +206,13 @@ namespace AutoPublish
                     {
                         continue;
                     }
-                    if (IsDirPath(str) && !_includeDirPaths.Contains(str))
+                    str = str.Replace("/", "\\");
+                    if (IsDirPath(str) && !IsContainedByIncludeDirPaths(str))
                     //不是指定要被包含的目录不要
                     {
                         continue;
                     }
-                    list.Add(str.Replace("/", "\\"));
+                    list.Add(str);
                 }
             }
             finally
@@ -195,6 +221,32 @@ namespace AutoPublish
             }
 
             return list;
+        }
+
+        /// <summary>
+        /// 指定目录路径是否是想被包含（用于文件对比）的目录路径
+        /// </summary>
+        /// <param name="dirPath"></param>
+        /// <returns></returns>
+        private bool IsContainedByIncludeDirPaths(string dirPath)
+        {
+            if (!dirPath.StartsWith("\\"))
+            {
+                dirPath = "\\" + dirPath;
+            }
+            if (!dirPath.EndsWith("\\"))
+            {
+                dirPath = dirPath + "\\";
+            }
+            foreach (var includeDirPath in _includeDirPaths)
+            {
+                if (dirPath.Contains(includeDirPath))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

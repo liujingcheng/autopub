@@ -71,14 +71,15 @@ namespace AutoPublish
         /// <param name="tempFileName">存放指定远程目录下所有文件名的临时文件</param>
         public void ListFtpFiles(string remoteDirPath, string localTempDirPath, string tempFileName)
         {
-            var serverPath = _ftpUrl + "/" + _ftpUpdateFolder + (string.IsNullOrEmpty(remoteDirPath) ? "" : "/" + remoteDirPath);
+            if (remoteDirPath != null)
+            {
+                remoteDirPath = remoteDirPath.Replace("\\", "/");
+            }
+            var serverPath = _ftpUrl + remoteDirPath;
 
             var localTempFilePath = localTempDirPath + "\\" + tempFileName;
             var outputStream = new FileStream(localTempFilePath, FileMode.Create);
-            var reqFtp = (FtpWebRequest)WebRequest.Create(new Uri(serverPath));
-            reqFtp.Method = WebRequestMethods.Ftp.ListDirectory;
-            reqFtp.UseBinary = true;
-            reqFtp.Credentials = new NetworkCredential(_ftpUserName, _ftpPassword);
+            var reqFtp = CreateFtpWebRequest(serverPath);
             var response = (FtpWebResponse)reqFtp.GetResponse();
             Stream ftpStream = response.GetResponseStream();
             try
@@ -102,6 +103,15 @@ namespace AutoPublish
                 response.Close();
             }
 
+        }
+
+        private FtpWebRequest CreateFtpWebRequest(string serverPath)
+        {
+            var reqFtp = (FtpWebRequest)WebRequest.Create(new Uri(serverPath));
+            reqFtp.Method = WebRequestMethods.Ftp.ListDirectory;
+            reqFtp.UseBinary = true;
+            reqFtp.Credentials = new NetworkCredential(_ftpUserName, _ftpPassword);
+            return reqFtp;
         }
 
 
