@@ -66,12 +66,12 @@ namespace AutoPublish
         /// <summary>
         /// 列出远程目录下所有文件路径到指定的临时文件里
         /// </summary>
-        /// <param name="remoteDirName">远程ftp根目录下的子目录（为空则视为根目录）</param>
+        /// <param name="remoteDirPath">远程ftp根目录下的子目录路径（为空则视为根目录，可多层级，以/分隔）</param>
         /// <param name="localTempDirPath">本地临时文件夹路径</param>
         /// <param name="tempFileName">存放指定远程目录下所有文件名的临时文件</param>
-        public void ListFtpFiles(string remoteDirName, string localTempDirPath, string tempFileName)
+        public void ListFtpFiles(string remoteDirPath, string localTempDirPath, string tempFileName)
         {
-            var serverPath = _ftpUrl + "/" + _ftpUpdateFolder + (string.IsNullOrEmpty(remoteDirName) ? "" : "/" + remoteDirName);
+            var serverPath = _ftpUrl + "/" + _ftpUpdateFolder + (string.IsNullOrEmpty(remoteDirPath) ? "" : "/" + remoteDirPath);
 
             var localTempFilePath = localTempDirPath + "\\" + tempFileName;
             var outputStream = new FileStream(localTempFilePath, FileMode.Create);

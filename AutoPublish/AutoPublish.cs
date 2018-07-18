@@ -91,7 +91,7 @@ namespace AutoPublish
             var xmlFileName = "UpdateList.xml";
             var tempDownloadDirName = "tempDownload";
             // 存放远程目录下所有文件路径的临时文件名
-            var remoteDirFilePathsFileName = "remoteDirFilePaths.txt";
+            var tempRemoteDirFilePathsFileName = "remoteDirFilePaths.txt";
 
             var localTempDir = AppDomain.CurrentDomain.BaseDirectory + "\\" + tempDownloadDirName;
             if (!Directory.Exists(localTempDir))
@@ -103,21 +103,37 @@ namespace AutoPublish
 
             _ftpTool.DownLoadFile(tempDownloadDirName, xmlFileName);
 
-            _ftpTool.ListFtpFiles(null, tempDownloadDirName, remoteDirFilePathsFileName);
+            var remoteFilePaths = GetRemoteFilePathsRecursive(tempDownloadDirName, tempRemoteDirFilePathsFileName, localTempDir);
 
-            var remoteFilePaths = GetRemoteFilePaths(localTempDir + "\\" + remoteDirFilePathsFileName);
-
+            var remoteFilePathsArray = remoteFilePaths.ToArray();
             var localFilePathsTemp = Directory.GetFiles(_localDirPath, "*", _needCopyDescendantDir ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
             var localFilePaths = localFilePathsTemp.Where(localFilePath => !_excludeNames.Any(localFilePath.Contains)).ToList();
 
-            UpdateXmlWhileRemoteFileNotExist(localFilePaths, remoteFilePaths, tempRemoteXmlPath);
+            UpdateXmlWhileRemoteFileNotExist(localFilePaths, remoteFilePathsArray, tempRemoteXmlPath);
 
-            UpdateXmlWhileRemoteFileExist(localFilePaths, remoteFilePaths, tempRemoteXmlPath);
+            UpdateXmlWhileRemoteFileExist(localFilePaths, remoteFilePathsArray, tempRemoteXmlPath);
 
             UploadFiles(tempRemoteXmlPath);
 
             Console.WriteLine("发布完成！");
 
+        }
+
+
+        private List<string> GetRemoteFilePathsRecursive(string tempDownloadDirName, string tempRemoteDirFilePathsFileName,
+            string localTempDir)
+        {
+            _ftpTool.ListFtpFiles(null, tempDownloadDirName, tempRemoteDirFilePathsFileName);
+            var remoteFilePaths = GetRemoteFilePaths(localTempDir + "\\" + tempRemoteDirFilePathsFileName);
+
+            var list = new List<string>();
+            foreach (var dirPath in remoteFilePaths.Select(IsDirPath))
+            {
+                var childList =
+                    GetRemoteFilePathsRecursive(tempDownloadDirName, tempRemoteDirFilePathsFileName, localTempDir);
+            }
+
+            return remoteFilePaths;
         }
 
         /// <summary>
@@ -150,9 +166,9 @@ namespace AutoPublish
         /// </summary>
         /// <param name="localFilePathStoreAllRemoteFilePaths">存放远程目录下所有文件路径的临时文件路径</param>
         /// <returns></returns>
-        private string[] GetRemoteFilePaths(string localFilePathStoreAllRemoteFilePaths)
+        private List<string> GetRemoteFilePaths(string localFilePathStoreAllRemoteFilePaths)
         {
-            var listStr = new List<string>();
+            var list = new List<string>();
             var rFile = new FileStream(localFilePathStoreAllRemoteFilePaths, FileMode.Open);
 
             var sr = new StreamReader(rFile, Encoding.GetEncoding("utf-8"));
@@ -170,7 +186,7 @@ namespace AutoPublish
                     {
                         continue;
                     }
-                    listStr.Add(str.Replace("/", "\\"));
+                    list.Add(str.Replace("/", "\\"));
                 }
             }
             finally
@@ -178,7 +194,7 @@ namespace AutoPublish
                 sr.Close();
             }
 
-            return listStr.ToArray();
+            return list;
         }
 
         /// <summary>
