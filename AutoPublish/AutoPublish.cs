@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.FtpClient;
 using System.Text;
 using System.Xml;
@@ -114,6 +115,8 @@ namespace AutoPublish
                 || IsDirPath(localFilePath) && IsContainedByIncludeDirPaths(localFilePath))
                 .ToList();
 
+            CreateRemoteFileDirIfNotExist(localFilePaths);
+
             UpdateXmlWhileRemoteFileNotExist(localFilePaths, remoteFilePathsArray, tempRemoteXmlPath);
 
             UpdateXmlWhileRemoteFileExist(localFilePaths, remoteFilePathsArray, tempRemoteXmlPath);
@@ -121,6 +124,32 @@ namespace AutoPublish
             UploadFiles(tempRemoteXmlPath);
 
             Console.WriteLine("发布完成！");
+
+        }
+
+        /// <summary>
+        /// 根据本地目录路径判断如果远程对应子目录不存在，需要创建远程子目录
+        /// </summary>
+        /// <param name="localFilePaths"></param>
+        private void CreateRemoteFileDirIfNotExist(List<string> localFilePaths)
+        {
+            var distinctDirPaths = localFilePaths.Select(p => p.Substring(0, p.LastIndexOf("\\"))).Distinct().OrderBy(p => p.Length).ToList();
+
+            using (FtpClient conn = new FtpClient())
+            {
+                conn.Host = _ftpUrl.Replace("ftp://", "");
+                conn.Credentials = new NetworkCredential(_ftpUserName, _ftpPassword);
+
+                foreach (var dirPath in distinctDirPaths)
+                {
+                    var relativeDirPath = GetNamePath(dirPath, _localDirPath);
+                    var ftpDirPath = _ftpUpdateFolder + relativeDirPath.Replace("\\", "/");
+                    if (!conn.DirectoryExists(ftpDirPath))
+                    {
+                        conn.CreateDirectory(ftpDirPath, true);
+                    }
+                }
+            }
 
         }
 
@@ -273,7 +302,6 @@ namespace AutoPublish
                 if (fileName != null && !remoteFilePaths.Any(q => q.EndsWith(fileName)))
                 {
                     var remoteFilePath = _ftpUpdateFolder + fileName;
-                    CreateRemoteFileDirIfNeed(remoteFilePath);
                     _needUpdateFilePaths.Add(remoteFilePath);
                     Common.ModifyXmlFile(remoteXmlPath, fileName);
                 }
@@ -305,16 +333,6 @@ namespace AutoPublish
                     }
                 }
             }
-        }
-
-        /// <summary>
-        /// 如果远程子目录不存在，需要创建子目录
-        /// </summary>
-        /// <param name="remoteFilePath"></param>
-        private void CreateRemoteFileDirIfNeed(string remoteFilePath)
-        {
-            var ftpDirPath = Path.GetDirectoryName(remoteFilePath).Replace("\\", "/");
-            _ftpTool.CreateDirectoryIfNotExist(ftpDirPath);
         }
 
         /// <summary>
