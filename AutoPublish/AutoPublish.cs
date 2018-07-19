@@ -104,11 +104,6 @@ namespace AutoPublish
 
             _ftpTool.DownLoadFile(tempDownloadDirName, xmlFileName);
 
-            var remoteFilePaths = GetRemoteFilePathsRecursive("/" + _ftpUpdateFolder, tempDownloadDirName, tempRemoteDirFilePathsFileName, localTempDir);
-
-            remoteFilePaths = remoteFilePaths.Select(p => p.Replace("/", "\\")).ToList();//把首字符斜杠改成反斜杠
-
-            var remoteFilePathsArray = remoteFilePaths.ToArray();
             var localFilePathsTemp = Directory.GetFiles(_localDirPath, "*", _needCopyDescendantDir ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
             var localFilePaths = localFilePathsTemp.Where(localFilePath =>
                 !IsDirPath(localFilePath) && !_excludeNames.Any(localFilePath.Contains)
@@ -117,9 +112,7 @@ namespace AutoPublish
 
             CreateRemoteFileDirIfNotExist(localFilePaths);
 
-            UpdateXmlWhileRemoteFileNotExist(localFilePaths, remoteFilePathsArray, tempRemoteXmlPath);
-
-            UpdateXmlWhileRemoteFileExist(localFilePaths, remoteFilePathsArray, tempRemoteXmlPath);
+            UpdateXmlFile(localFilePaths, tempRemoteXmlPath);
 
             UploadFiles(tempRemoteXmlPath);
 
@@ -142,7 +135,7 @@ namespace AutoPublish
 
                 foreach (var dirPath in distinctDirPaths)
                 {
-                    var relativeDirPath = GetNamePath(dirPath, _localDirPath);
+                    var relativeDirPath = GetRelativeFilePath(dirPath, _localDirPath);
                     var ftpDirPath = _ftpUpdateFolder + relativeDirPath.Replace("\\", "/");
                     if (!conn.DirectoryExists(ftpDirPath))
                     {
@@ -299,7 +292,7 @@ namespace AutoPublish
         {
             foreach (var localFilePath in localFilePaths)
             {
-                var fileName = GetNamePath(localFilePath, _localDirPath);
+                var fileName = GetRelativeFilePath(localFilePath, _localDirPath);
                 if (fileName != null && !remoteFilePaths.Any(q => q.EndsWith(fileName)))
                 {
                     var remoteFilePath = _ftpUpdateFolder + fileName;
@@ -309,7 +302,7 @@ namespace AutoPublish
             }
         }
 
-        private void UpdateXmlWhileRemoteFileExist(List<string> localFilePaths, string[] remoteFilePaths,
+        private void UpdateXmlFile(List<string> localFilePaths,
             string remoteXmlPath)
         {
             using (FtpClient conn = new FtpClient())
@@ -318,18 +311,21 @@ namespace AutoPublish
 
                 foreach (var localFilePath in localFilePaths)
                 {
-                    var fileName = GetNamePath(localFilePath, _localDirPath);
-                    if (fileName != null)
+                    var relativeFilePath = GetRelativeFilePath(localFilePath, _localDirPath);
+                    if (relativeFilePath != null)
                     {
-                        var remoteFilePath = remoteFilePaths.FirstOrDefault(q => q.EndsWith(fileName));
-                        if (remoteFilePath != null)
+                        var remoteFilePath = (_ftpUpdateFolder + relativeFilePath).Replace("\\", "/");
+                        if (!conn.FileExists(remoteFilePath))
                         {
-                            if (_ftpTool.IsLocalFileNewerThanRemoteFile(_ftpUpdateFolder + fileName,
-                                localFilePath, conn))
-                            {
-                                _needUpdateFilePaths.Add(remoteFilePath);
-                                Common.ModifyXmlFile(remoteXmlPath, fileName);
-                            }
+                            _needUpdateFilePaths.Add(remoteFilePath);
+                            Common.ModifyXmlFile(remoteXmlPath, relativeFilePath);
+                        }
+                        else
+                        if (_ftpTool.IsLocalFileNewerThanRemoteFile(_ftpUpdateFolder + relativeFilePath,
+                            localFilePath, conn))
+                        {
+                            _needUpdateFilePaths.Add(remoteFilePath);
+                            Common.ModifyXmlFile(remoteXmlPath, relativeFilePath);
                         }
                     }
                 }
@@ -347,7 +343,7 @@ namespace AutoPublish
         /// <param name="fullPath">全路径</param>
         /// <param name="mainDirPath">主目录路径</param>
         /// <returns></returns>
-        private string GetNamePath(string fullPath, string mainDirPath)
+        private string GetRelativeFilePath(string fullPath, string mainDirPath)
         {
             if (fullPath == null || mainDirPath == null) throw new ArgumentNullException();
 
