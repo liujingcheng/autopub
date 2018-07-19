@@ -313,7 +313,7 @@ namespace AutoPublish
         /// <param name="remoteFilePath"></param>
         private void CreateRemoteFileDirIfNeed(string remoteFilePath)
         {
-            var ftpDirPath = remoteFilePath.Replace("\\", "/");
+            var ftpDirPath = Path.GetDirectoryName(remoteFilePath).Replace("\\", "/");
             _ftpTool.CreateDirectoryIfNotExist(ftpDirPath);
         }
 

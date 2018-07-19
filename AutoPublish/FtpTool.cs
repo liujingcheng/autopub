@@ -122,7 +122,7 @@ namespace AutoPublish
         {
             using (FtpClient conn = new FtpClient())
             {
-                conn.Host = _ftpUrl;
+                conn.Host = _ftpUrl.Replace("ftp://", "");
                 conn.Credentials = new NetworkCredential(_ftpUserName, _ftpPassword);
                 if (!conn.DirectoryExists(dirPath))
                 {
