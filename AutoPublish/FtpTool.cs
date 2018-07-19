@@ -118,9 +118,9 @@ namespace AutoPublish
         /// 上传多文件
         /// </summary>
         /// <param name="filePaths">文件路径集合</param>
-        /// <param name="targetDir">目标文件夹</param>
+        /// <param name="remoteFilePaths">目标文件路径集合</param>
         /// <returns></returns>
-        public List<FileResult> UploadFileList(string[] filePaths, string targetDir)
+        public List<FileResult> UploadFileList(string[] filePaths, string[] remoteFilePaths)
         {
             List<FileResult> list = new List<FileResult>();
             if (filePaths != null && filePaths.Length > 0)
@@ -128,10 +128,16 @@ namespace AutoPublish
                 using (FtpClient ftpClient = new FtpClient())
                 {
                     SetCredentials(ftpClient);
-                    foreach (string filePath in filePaths)
+                    for (int i = 0; i < filePaths.Length; i++)
                     {
-                        list.Add(UploadByFtpClient(filePath, targetDir, ftpClient));
-                        Console.WriteLine(Path.GetFileName(filePath));
+                        var localFilePath = filePaths[i];
+                        var remoteFilePath = remoteFilePaths[i];
+                        if (Path.GetFileName(localFilePath) != Path.GetFileName(remoteFilePath))
+                        {
+                            throw new Exception("要上传的本地文件与目标文件名不一致！");
+                        }
+                        list.Add(UploadByFtpClient(localFilePath, remoteFilePath, ftpClient));
+                        Console.WriteLine(remoteFilePath);
                     }
                 }
             }
@@ -143,26 +149,18 @@ namespace AutoPublish
         /// </summary>
         /// modified by wyq on 2017-3-27
         /// <param name="filePath">待上传的文件路径</param>
-        /// <param name="targetDir">目标文件夹</param>
+        /// <param name="uploadPath">上传目标文件路径</param>
         /// <param name="ftpClient">ftp连接池</param>
-        public FileResult UploadByFtpClient(string filePath, string targetDir, FtpClient ftpClient)
+        public FileResult UploadByFtpClient(string filePath, string uploadPath, FtpClient ftpClient)
         {
             if (string.IsNullOrEmpty(filePath))
                 return new FileResult(false, "上传失败，文件路径为空。", string.Empty);
-
-            var targetName = Path.GetFileName(filePath);//目标文件名
-
-            //拼接上传目标文件路径
-            string uploadPath = targetDir + "/" + targetName;
 
             //默认上传数据格式为二进制数据
             FtpDataType type = FtpDataType.Binary;
             //当文件类型为cs或txt文件时，用ASCII格式作为数据传输格式
             if (Path.GetExtension(filePath).ToLower() == ".cs" || Path.GetExtension(filePath).ToLower() == ".txt")
                 type = FtpDataType.ASCII;
-            //判断目标文件夹是否存在
-            if (!ftpClient.DirectoryExists(targetDir.Trim()))
-                ftpClient.CreateDirectory(targetDir, true);
             //定义上传文件为数据流
             Stream istream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             //定义目标文件数据流

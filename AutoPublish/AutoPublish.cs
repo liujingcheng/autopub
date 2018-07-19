@@ -204,8 +204,9 @@ namespace AutoPublish
             Console.WriteLine("开始上传文件......");
             var filePaths = _needUpdateFilePaths.Select(p => _localDirPath + p.Replace(_ftpUpdateFolder, "")).ToList();
             filePaths.Add(tempRemoteXmlPath);//把更新好的xml文件一起上传
+            _needUpdateFilePaths.Add(_ftpUpdateFolder + "\\" + Path.GetFileName(tempRemoteXmlPath));
 
-            var uploadResults = _ftpTool.UploadFileList(filePaths.ToArray(), _ftpUpdateFolder);
+            var uploadResults = _ftpTool.UploadFileList(filePaths.ToArray(), _needUpdateFilePaths.ToArray());
             foreach (var uploadResult in uploadResults)
             {
                 if (uploadResult.State == false)
