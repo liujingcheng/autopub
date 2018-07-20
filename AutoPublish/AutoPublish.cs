@@ -287,21 +287,6 @@ namespace AutoPublish
             return true;
         }
 
-        private void UpdateXmlWhileRemoteFileNotExist(List<string> localFilePaths, string[] remoteFilePaths,
-            string remoteXmlPath)
-        {
-            foreach (var localFilePath in localFilePaths)
-            {
-                var fileName = GetRelativeFilePath(localFilePath, _localDirPath);
-                if (fileName != null && !remoteFilePaths.Any(q => q.EndsWith(fileName)))
-                {
-                    var remoteFilePath = _ftpUpdateFolder + fileName;
-                    _needUpdateFilePaths.Add(remoteFilePath);
-                    Common.ModifyXmlFile(remoteXmlPath, fileName);
-                }
-            }
-        }
-
         private void UpdateXmlFile(List<string> localFilePaths,
             string remoteXmlPath)
         {
