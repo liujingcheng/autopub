@@ -147,43 +147,6 @@ namespace AutoPublish
         }
 
         /// <summary>
-        /// 递归获取远程路径数组
-        /// </summary>
-        /// <param name="dirPath">远程目录路径</param>
-        /// <param name="tempDownloadDirName">临时下载目录</param>
-        /// <param name="tempRemoteDirFilePathsFileName">临时文件名</param>
-        /// <param name="localTempDir">本地临时目录</param>
-        /// <returns></returns>
-        private List<string> GetRemoteFilePathsRecursive(string dirPath, string tempDownloadDirName, string tempRemoteDirFilePathsFileName,
-            string localTempDir)
-        {
-            _ftpTool.ListFtpFiles(dirPath, tempDownloadDirName, tempRemoteDirFilePathsFileName);
-            var remoteFilePaths = GetRemoteFilePaths(localTempDir + "\\" + tempRemoteDirFilePathsFileName);
-
-            for (int i = 0; i < remoteFilePaths.Count; i++)
-            {
-                var path = remoteFilePaths[i];
-                path = path.Substring(path.IndexOf("\\"));
-                remoteFilePaths[i] = dirPath + path;
-            }
-
-            var list = new List<string>();
-            list.AddRange(remoteFilePaths);
-
-            foreach (var childDirPath in remoteFilePaths.Where(IsDirPath))
-            {
-                var childList =
-                    GetRemoteFilePathsRecursive(childDirPath, tempDownloadDirName, tempRemoteDirFilePathsFileName, localTempDir);
-                if (childList.Count > 0)
-                {
-                    list.AddRange(childList);
-                }
-            }
-
-            return list;
-        }
-
-        /// <summary>
         /// 上传文件
         /// </summary>
         /// <param name="tempRemoteXmlPath">待上传到服务器上的xml文件（覆盖服务器上的xml）</param>
