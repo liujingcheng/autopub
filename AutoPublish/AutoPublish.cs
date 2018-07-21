@@ -91,8 +91,6 @@ namespace AutoPublish
 
             var xmlFileName = "UpdateList.xml";
             var tempDownloadDirName = "tempDownload";
-            // 存放远程目录下所有文件路径的临时文件名
-            var tempRemoteDirFilePathsFileName = "remoteDirFilePaths.txt";
 
             var localTempDir = AppDomain.CurrentDomain.BaseDirectory + "\\" + tempDownloadDirName;
             if (!Directory.Exists(localTempDir))
