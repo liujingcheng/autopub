@@ -171,43 +171,6 @@ namespace AutoPublish
         }
 
         /// <summary>
-        /// 取远程目录所有文件相对路径集合
-        /// </summary>
-        /// <param name="localFilePathStoreAllRemoteFilePaths">存放远程目录下所有文件路径的临时文件路径</param>
-        /// <returns></returns>
-        private List<string> GetRemoteFilePaths(string localFilePathStoreAllRemoteFilePaths)
-        {
-            var list = new List<string>();
-            var rFile = new FileStream(localFilePathStoreAllRemoteFilePaths, FileMode.Open);
-
-            var sr = new StreamReader(rFile, Encoding.GetEncoding("utf-8"));
-            try
-            {
-                while (!sr.EndOfStream)
-                {
-                    var str = sr.ReadLine();
-                    if (string.IsNullOrWhiteSpace(str))
-                    {
-                        continue;
-                    }
-                    str = str.Replace("/", "\\");
-                    if (IsDirPath(str) && !IsContainedByIncludeDirPaths(str))
-                    //不是指定要被包含的目录不要
-                    {
-                        continue;
-                    }
-                    list.Add(str);
-                }
-            }
-            finally
-            {
-                sr.Close();
-            }
-
-            return list;
-        }
-
-        /// <summary>
         /// 指定目录路径是否是想被包含（用于文件对比）的目录路径
         /// </summary>
         /// <param name="dirPath"></param>
