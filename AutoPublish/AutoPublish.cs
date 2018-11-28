@@ -105,48 +105,49 @@ namespace AutoPublish
                 || IsDirPath(localFilePath) && IsContainedByIncludeDirPaths(localFilePath))
                 .ToList();
 
-            CreateRemoteFileDirIfNotExist(localFilePaths);
-
-            var needUpdateRemoteFilePaths = GetNeedUpdateFilePaths(localFilePaths);
-
-            UpdateXmlFile(_tempXmlPath, needUpdateRemoteFilePaths);
-
-            if (needUpdateRemoteFilePaths.Count == 0)
+            using (FtpClient ftpClient = new FtpClient())
             {
-                Console.WriteLine("没有要更新的文件！");
-                return;
-            }
-            Console.WriteLine("开始上传文件......");
-            //先上传要发布的文件
-            UploadFiles(needUpdateRemoteFilePaths);
-            //最后上传xml文件
-            UploadFiles(new List<string>() { remoteXmlPath });
+                ftpClient.Host = _ftpUrl.Replace("ftp://", "");
+                ftpClient.Credentials = new NetworkCredential(_ftpUserName, _ftpPassword);
 
-            Console.WriteLine("发布完成！");
+                CreateRemoteFileDirIfNotExist(ftpClient, localFilePaths);
+
+                var needUpdateRemoteFilePaths = GetNeedUpdateFilePaths(ftpClient, localFilePaths);
+
+                UpdateXmlFile(_tempXmlPath, needUpdateRemoteFilePaths);
+
+                if (needUpdateRemoteFilePaths.Count == 0)
+                {
+                    Console.WriteLine("没有要更新的文件！");
+                    return;
+                }
+                Console.WriteLine("开始上传文件......");
+                //先上传要发布的文件
+                UploadFiles(ftpClient, needUpdateRemoteFilePaths);
+                //最后上传xml文件
+                UploadFiles(ftpClient, new List<string>() { remoteXmlPath });
+
+                Console.WriteLine("发布完成！");
+            }
 
         }
 
         /// <summary>
         /// 根据本地目录路径判断如果远程对应子目录不存在，需要创建远程子目录
         /// </summary>
+        /// <param name="ftpClient"></param>
         /// <param name="localFilePaths"></param>
-        private void CreateRemoteFileDirIfNotExist(List<string> localFilePaths)
+        private void CreateRemoteFileDirIfNotExist(FtpClient ftpClient, List<string> localFilePaths)
         {
             var distinctDirPaths = localFilePaths.Select(p => p.Substring(0, p.LastIndexOf("\\"))).Distinct().OrderBy(p => p.Length).ToList();
 
-            using (FtpClient conn = new FtpClient())
+            foreach (var dirPath in distinctDirPaths)
             {
-                conn.Host = _ftpUrl.Replace("ftp://", "");
-                conn.Credentials = new NetworkCredential(_ftpUserName, _ftpPassword);
-
-                foreach (var dirPath in distinctDirPaths)
+                var relativeDirPath = GetRelativeFilePath(dirPath, _localDirPath);
+                var ftpDirPath = _ftpUpdateFolder + relativeDirPath.Replace("\\", "/");
+                if (!ftpClient.DirectoryExists(ftpDirPath))
                 {
-                    var relativeDirPath = GetRelativeFilePath(dirPath, _localDirPath);
-                    var ftpDirPath = _ftpUpdateFolder + relativeDirPath.Replace("\\", "/");
-                    if (!conn.DirectoryExists(ftpDirPath))
-                    {
-                        conn.CreateDirectory(ftpDirPath, true);
-                    }
+                    ftpClient.CreateDirectory(ftpDirPath, true);
                 }
             }
 
@@ -155,30 +156,28 @@ namespace AutoPublish
         /// <summary>
         /// 上传文件
         /// </summary>
+        /// <param name="ftpClient"></param>
         /// <param name="needUpdateRemoteFilePaths">需要被更新的文件路径</param>
-        private void UploadFiles(List<string> needUpdateRemoteFilePaths)
+        private void UploadFiles(FtpClient ftpClient, List<string> needUpdateRemoteFilePaths)
         {
-            using (FtpClient ftpClient = new FtpClient())
+            List<string> toBeUploadFilePaths = needUpdateRemoteFilePaths;
+
+            int i = 0;
+            while (i++ < 5 && toBeUploadFilePaths.Count > 0)
             {
-                List<string> toBeUploadFilePaths = needUpdateRemoteFilePaths;
-
-                int i = 0;
-                while (i++ < 5 && toBeUploadFilePaths.Count > 0)
-                {
-                    var localFilePaths = ConvertToLoaclFilePaths(toBeUploadFilePaths);
-                    _ftpTool.UploadFileList(ftpClient, localFilePaths.ToArray(), toBeUploadFilePaths.ToArray());
-                    toBeUploadFilePaths = GetUploadedFailedFiles(ftpClient, toBeUploadFilePaths);
-
-                    if (toBeUploadFilePaths.Count > 0)
-                    {
-                        Console.WriteLine(string.Format("有文件内容丢失！重试{0}次......", i + 1));
-                    }
-                }
+                var localFilePaths = ConvertToLoaclFilePaths(toBeUploadFilePaths);
+                _ftpTool.UploadFileList(ftpClient, localFilePaths.ToArray(), toBeUploadFilePaths.ToArray());
+                toBeUploadFilePaths = GetUploadedFailedFiles(ftpClient, toBeUploadFilePaths);
 
                 if (toBeUploadFilePaths.Count > 0)
                 {
-                    throw new Exception(string.Format("上传完后检测到远程文件与本地文件大小不一致！重试5次后依然失败！remoteFilePath = {0}}", toBeUploadFilePaths.First()));
+                    Console.WriteLine(string.Format("有文件内容丢失！重试{0}次......", i + 1));
                 }
+            }
+
+            if (toBeUploadFilePaths.Count > 0)
+            {
+                throw new Exception(string.Format("上传完后检测到远程文件与本地文件大小不一致！重试5次后依然失败！remoteFilePath = {0}}", toBeUploadFilePaths.First()));
             }
         }
 
@@ -247,31 +246,28 @@ namespace AutoPublish
         /// <summary>
         /// 取需要更新的文件路径
         /// </summary>
+        /// <param name="ftpClient"></param>
         /// <param name="localFilePaths"></param>
         /// <returns></returns>
-        private List<string> GetNeedUpdateFilePaths(List<string> localFilePaths)
+        private List<string> GetNeedUpdateFilePaths(FtpClient ftpClient, List<string> localFilePaths)
         {
             var needUpdateRemoteFilePaths = new List<string>();
-            using (FtpClient conn = new FtpClient())
-            {
-                _ftpTool.SetCredentials(conn);
 
-                foreach (var localFilePath in localFilePaths)
+            foreach (var localFilePath in localFilePaths)
+            {
+                var relativeFilePath = GetRelativeFilePath(localFilePath, _localDirPath);
+                if (relativeFilePath != null)
                 {
-                    var relativeFilePath = GetRelativeFilePath(localFilePath, _localDirPath);
-                    if (relativeFilePath != null)
+                    var remoteFilePath = (_ftpUpdateFolder + relativeFilePath).Replace("\\", "/");
+                    if (!ftpClient.FileExists(remoteFilePath))
                     {
-                        var remoteFilePath = (_ftpUpdateFolder + relativeFilePath).Replace("\\", "/");
-                        if (!conn.FileExists(remoteFilePath))
-                        {
-                            needUpdateRemoteFilePaths.Add(remoteFilePath);
-                        }
-                        else
-                        if (_ftpTool.IsLocalFileNewerThanRemoteFile(_ftpUpdateFolder + relativeFilePath,
-                            localFilePath, conn))
-                        {
-                            needUpdateRemoteFilePaths.Add(remoteFilePath);
-                        }
+                        needUpdateRemoteFilePaths.Add(remoteFilePath);
+                    }
+                    else
+                    if (_ftpTool.IsLocalFileNewerThanRemoteFile(_ftpUpdateFolder + relativeFilePath,
+                        localFilePath, ftpClient))
+                    {
+                        needUpdateRemoteFilePaths.Add(remoteFilePath);
                     }
                 }
             }
