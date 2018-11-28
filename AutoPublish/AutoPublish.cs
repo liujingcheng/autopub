@@ -107,7 +107,7 @@ namespace AutoPublish
 
             CreateRemoteFileDirIfNotExist(localFilePaths);
 
-            var needUpdateRemoteFilePaths = GetNeedUpdateFilePaths(localFilePaths, tempXmlPath);
+            var needUpdateRemoteFilePaths = GetNeedUpdateFilePaths(localFilePaths);
 
             UpdateXmlFile(tempXmlPath, needUpdateRemoteFilePaths);
 
@@ -238,10 +238,8 @@ namespace AutoPublish
         /// 取需要更新的文件路径
         /// </summary>
         /// <param name="localFilePaths"></param>
-        /// <param name="remoteXmlPath"></param>
         /// <returns></returns>
-        private List<string> GetNeedUpdateFilePaths(List<string> localFilePaths,
-            string remoteXmlPath)
+        private List<string> GetNeedUpdateFilePaths(List<string> localFilePaths)
         {
             var needUpdateRemoteFilePaths = new List<string>();
             using (FtpClient conn = new FtpClient())
@@ -271,14 +269,14 @@ namespace AutoPublish
             return needUpdateRemoteFilePaths;
         }
 
-        private void UpdateXmlFile(string remoteXmlPath, List<string> needUpdateRemoteFilePaths)
+        private void UpdateXmlFile(string tempXmlPath, List<string> needUpdateRemoteFilePaths)
         {
             foreach (var needUpdateRemoteFilePath in needUpdateRemoteFilePaths)
             {
                 var relativeFilePath = needUpdateRemoteFilePath
                     .Substring(needUpdateRemoteFilePath.Length - _ftpUpdateFolder.Length)
                     .Replace("/", @"\"); ;
-                Common.ModifyXmlFile(remoteXmlPath, relativeFilePath);
+                Common.ModifyXmlFile(tempXmlPath, relativeFilePath);
             }
 
         }
