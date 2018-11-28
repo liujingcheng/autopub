@@ -117,31 +117,33 @@ namespace AutoPublish
         /// <summary>
         /// 上传多文件
         /// </summary>
+        /// <param name="ftpClient"></param>
         /// <param name="filePaths">文件路径集合</param>
         /// <param name="remoteFilePaths">目标文件路径集合</param>
         /// <returns></returns>
-        public List<FileResult> UploadFileList(string[] filePaths, string[] remoteFilePaths)
+        public void UploadFileList(FtpClient ftpClient, string[] filePaths, string[] remoteFilePaths)
         {
-            List<FileResult> list = new List<FileResult>();
             if (filePaths != null && filePaths.Length > 0)
             {
-                using (FtpClient ftpClient = new FtpClient())
+                SetCredentials(ftpClient);
+                for (int i = 0; i < filePaths.Length; i++)
                 {
-                    SetCredentials(ftpClient);
-                    for (int i = 0; i < filePaths.Length; i++)
+                    var localFilePath = filePaths[i];
+                    var remoteFilePath = remoteFilePaths[i];
+                    if (Path.GetFileName(localFilePath) != Path.GetFileName(remoteFilePath))
                     {
-                        var localFilePath = filePaths[i];
-                        var remoteFilePath = remoteFilePaths[i];
-                        if (Path.GetFileName(localFilePath) != Path.GetFileName(remoteFilePath))
-                        {
-                            throw new Exception("要上传的本地文件与目标文件名不一致！");
-                        }
-                        list.Add(UploadByFtpClient(localFilePath, remoteFilePath, ftpClient));
-                        Console.WriteLine(remoteFilePath);
+                        throw new Exception("要上传的本地文件与目标文件名不一致！");
                     }
+
+                    var uploadResult = UploadByFtpClient(localFilePath, remoteFilePath, ftpClient);
+                    if (uploadResult.State == false)
+                    {
+                        throw new Exception(uploadResult.Url + uploadResult.Path + "上传失败！" + uploadResult.FailureMessage);
+                    }
+
+                    Console.WriteLine(remoteFilePath);
                 }
             }
-            return list;
         }
 
         /// <summary>
@@ -185,9 +187,10 @@ namespace AutoPublish
                     hasUpLoad += contentLen;
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                return new FileResult(false, string.Format("上传{0}时连接不上远程服务器!\n", filePath), string.Empty);
+                return new FileResult(false, string.Format("上传{0}出错!{1}{2}{3}", filePath,
+                    e.Message, Environment.NewLine, e.StackTrace), string.Empty);
             }
             finally
             {

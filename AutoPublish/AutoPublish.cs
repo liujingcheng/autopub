@@ -94,7 +94,8 @@ namespace AutoPublish
                 Directory.CreateDirectory(localTempDir);
             }
 
-            var tempRemoteXmlPath = localTempDir + "\\" + xmlFileName;
+            var tempXmlPath = localTempDir + "\\" + xmlFileName;//等待+1后被上传到服务器的xml文件路径
+            var remoteXmlPath = _ftpUpdateFolder + "\\" + Path.GetFileName(tempXmlPath);//服务器上xml文件路径
 
             _ftpTool.DownLoadFile(tempDownloadDirName, xmlFileName);
 
@@ -106,15 +107,20 @@ namespace AutoPublish
 
             CreateRemoteFileDirIfNotExist(localFilePaths);
 
-            var needUpdateRemoteFilePaths = GetNeedUpdateFilePaths(localFilePaths, tempRemoteXmlPath);
+            var needUpdateRemoteFilePaths = GetNeedUpdateFilePaths(localFilePaths, tempXmlPath);
 
-            UploadFiles(tempRemoteXmlPath, needUpdateRemoteFilePaths);
+            UpdateXmlFile(tempXmlPath, needUpdateRemoteFilePaths);
 
-            //TODO:检测上传的文件是否完整
-
-
-            UpdateXmlFile(tempRemoteXmlPath, needUpdateRemoteFilePaths);
-
+            if (needUpdateRemoteFilePaths.Count == 0)
+            {
+                Console.WriteLine("没有要更新的文件！");
+                return;
+            }
+            Console.WriteLine("开始上传文件......");
+            //先上传要发布的文件
+            UploadFiles(needUpdateRemoteFilePaths);
+            //最后上传xml文件
+            UploadFiles(new List<string>() { remoteXmlPath });
 
             Console.WriteLine("发布完成！");
 
@@ -149,28 +155,42 @@ namespace AutoPublish
         /// <summary>
         /// 上传文件
         /// </summary>
-        /// <param name="tempRemoteXmlPath">待上传到服务器上的xml文件（覆盖服务器上的xml）</param>
         /// <param name="needUpdateRemoteFilePaths">需要被更新的文件路径</param>
-        private void UploadFiles(string tempRemoteXmlPath, List<string> needUpdateRemoteFilePaths)
+        private void UploadFiles(List<string> needUpdateRemoteFilePaths)
         {
-            if (needUpdateRemoteFilePaths.Count == 0)
+            using (FtpClient ftpClient = new FtpClient())
             {
-                Console.WriteLine("没有要更新的文件！");
-                return;
-            }
-            Console.WriteLine("开始上传文件......");
-            var filePaths = needUpdateRemoteFilePaths.Select(p => _localDirPath + p.Replace(_ftpUpdateFolder, "")).ToList();
-            filePaths.Add(tempRemoteXmlPath);//把更新好的xml文件一起上传
-            needUpdateRemoteFilePaths.Add(_ftpUpdateFolder + "\\" + Path.GetFileName(tempRemoteXmlPath));
+                List<string> toBeUploadFilePaths = needUpdateRemoteFilePaths;
 
-            var uploadResults = _ftpTool.UploadFileList(filePaths.ToArray(), needUpdateRemoteFilePaths.ToArray());
-            foreach (var uploadResult in uploadResults)
-            {
-                if (uploadResult.State == false)
+                int i = 0;
+                while (i++ < 5 && toBeUploadFilePaths.Count > 0)
                 {
-                    throw new Exception(uploadResult.Url + uploadResult.Path + "上传失败！" + uploadResult.FailureMessage);
+                    var localFilePaths = ConvertToLoaclFilePaths(toBeUploadFilePaths);
+                    _ftpTool.UploadFileList(ftpClient, localFilePaths.ToArray(), toBeUploadFilePaths.ToArray());
+                    toBeUploadFilePaths = GetUploadedFailedFiles(ftpClient, toBeUploadFilePaths);
+
+                    if (toBeUploadFilePaths.Count > 0)
+                    {
+                        Console.WriteLine(string.Format("有文件内容丢失！重试{0}次......", i + 1));
+                    }
+                }
+
+                if (toBeUploadFilePaths.Count > 0)
+                {
+                    throw new Exception(string.Format("上传完后检测到远程文件与本地文件大小不一致！重试5次后依然失败！remoteFilePath = {0}}", toBeUploadFilePaths.First()));
                 }
             }
+        }
+
+        /// <summary>
+        /// 把远程路径转换成本地路径
+        /// </summary>
+        /// <param name="remoteFilePaths"></param>
+        /// <returns></returns>
+        private List<string> ConvertToLoaclFilePaths(List<string> remoteFilePaths)
+        {
+            var filePaths = remoteFilePaths.Select(p => _localDirPath + p.Replace(_ftpUpdateFolder, "")).ToList();
+            return filePaths;
         }
 
         /// <summary>
@@ -237,14 +257,12 @@ namespace AutoPublish
                         if (!conn.FileExists(remoteFilePath))
                         {
                             needUpdateRemoteFilePaths.Add(remoteFilePath);
-                            Common.ModifyXmlFile(remoteXmlPath, relativeFilePath);
                         }
                         else
                         if (_ftpTool.IsLocalFileNewerThanRemoteFile(_ftpUpdateFolder + relativeFilePath,
                             localFilePath, conn))
                         {
                             needUpdateRemoteFilePaths.Add(remoteFilePath);
-                            Common.ModifyXmlFile(remoteXmlPath, relativeFilePath);
                         }
                     }
                 }
@@ -263,6 +281,34 @@ namespace AutoPublish
                 Common.ModifyXmlFile(remoteXmlPath, relativeFilePath);
             }
 
+        }
+
+        /// <summary>
+        /// 取上传后有内容丢失的所有文件路径
+        /// </summary>
+        /// <param name="ftpClient">已上传的文件路径</param>
+        /// <param name="uploadedRemoteFilePaths">已上传的文件路径</param>
+        /// <returns></returns>
+        private List<string> GetUploadedFailedFiles(FtpClient ftpClient, List<string> uploadedRemoteFilePaths)
+        {
+            var list = new List<string>();
+            var localFilePaths = ConvertToLoaclFilePaths(uploadedRemoteFilePaths);
+            for (int i = 0; i < uploadedRemoteFilePaths.Count; i++)
+            {
+                var localFilePath = localFilePaths[i];
+                var remoteFilePath = uploadedRemoteFilePaths[i];
+
+                FileInfo fileInfo = new FileInfo(localFilePath);
+                var localFileLength = fileInfo.Length;
+                var remoteFileLength = ftpClient.GetFileSize(remoteFilePath);
+                if (localFileLength != remoteFileLength)
+                {
+                    list.Add(remoteFilePath);
+                    Console.WriteLine(string.Format("上传完后检测到远程文件与本地文件大小不一致！localFileLength = {0}, remoteFileLenth = {1}", localFileLength, remoteFileLength));
+                }
+            }
+
+            return list;
         }
 
         /// <summary>
