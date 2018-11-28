@@ -171,7 +171,7 @@ namespace AutoPublish
 
                 if (toBeUploadFilePaths.Count > 0)
                 {
-                    Console.WriteLine(string.Format("有文件内容丢失！重试{0}次......", i + 1));
+                    Console.WriteLine(string.Format("有文件内容丢失！重试{0}次......", i));
                 }
             }
 
