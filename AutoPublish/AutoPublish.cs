@@ -106,14 +106,14 @@ namespace AutoPublish
 
             CreateRemoteFileDirIfNotExist(localFilePaths);
 
-            var needUpdateFilePaths = GetNeedUpdateFilePaths(localFilePaths, tempRemoteXmlPath);
+            var needUpdateRemoteFilePaths = GetNeedUpdateFilePaths(localFilePaths, tempRemoteXmlPath);
 
-            UploadFiles(tempRemoteXmlPath, needUpdateFilePaths);
+            UploadFiles(tempRemoteXmlPath, needUpdateRemoteFilePaths);
 
             //TODO:检测上传的文件是否完整
 
 
-            UpdateXmlFile(tempRemoteXmlPath, needUpdateFilePaths);
+            UpdateXmlFile(tempRemoteXmlPath, needUpdateRemoteFilePaths);
 
 
             Console.WriteLine("发布完成！");
@@ -150,20 +150,20 @@ namespace AutoPublish
         /// 上传文件
         /// </summary>
         /// <param name="tempRemoteXmlPath">待上传到服务器上的xml文件（覆盖服务器上的xml）</param>
-        /// <param name="tempRemoteXmlPath">需要被更新的文件路径</param>
-        private void UploadFiles(string tempRemoteXmlPath, List<string> needUpdateFilePaths)
+        /// <param name="needUpdateRemoteFilePaths">需要被更新的文件路径</param>
+        private void UploadFiles(string tempRemoteXmlPath, List<string> needUpdateRemoteFilePaths)
         {
-            if (needUpdateFilePaths.Count == 0)
+            if (needUpdateRemoteFilePaths.Count == 0)
             {
                 Console.WriteLine("没有要更新的文件！");
                 return;
             }
             Console.WriteLine("开始上传文件......");
-            var filePaths = needUpdateFilePaths.Select(p => _localDirPath + p.Replace(_ftpUpdateFolder, "")).ToList();
+            var filePaths = needUpdateRemoteFilePaths.Select(p => _localDirPath + p.Replace(_ftpUpdateFolder, "")).ToList();
             filePaths.Add(tempRemoteXmlPath);//把更新好的xml文件一起上传
-            needUpdateFilePaths.Add(_ftpUpdateFolder + "\\" + Path.GetFileName(tempRemoteXmlPath));
+            needUpdateRemoteFilePaths.Add(_ftpUpdateFolder + "\\" + Path.GetFileName(tempRemoteXmlPath));
 
-            var uploadResults = _ftpTool.UploadFileList(filePaths.ToArray(), needUpdateFilePaths.ToArray());
+            var uploadResults = _ftpTool.UploadFileList(filePaths.ToArray(), needUpdateRemoteFilePaths.ToArray());
             foreach (var uploadResult in uploadResults)
             {
                 if (uploadResult.State == false)
@@ -223,7 +223,7 @@ namespace AutoPublish
         private List<string> GetNeedUpdateFilePaths(List<string> localFilePaths,
             string remoteXmlPath)
         {
-            var needUpdateFilePaths = new List<string>();
+            var needUpdateRemoteFilePaths = new List<string>();
             using (FtpClient conn = new FtpClient())
             {
                 _ftpTool.SetCredentials(conn);
@@ -236,21 +236,21 @@ namespace AutoPublish
                         var remoteFilePath = (_ftpUpdateFolder + relativeFilePath).Replace("\\", "/");
                         if (!conn.FileExists(remoteFilePath))
                         {
-                            needUpdateFilePaths.Add(remoteFilePath);
+                            needUpdateRemoteFilePaths.Add(remoteFilePath);
                             Common.ModifyXmlFile(remoteXmlPath, relativeFilePath);
                         }
                         else
                         if (_ftpTool.IsLocalFileNewerThanRemoteFile(_ftpUpdateFolder + relativeFilePath,
                             localFilePath, conn))
                         {
-                            needUpdateFilePaths.Add(remoteFilePath);
+                            needUpdateRemoteFilePaths.Add(remoteFilePath);
                             Common.ModifyXmlFile(remoteXmlPath, relativeFilePath);
                         }
                     }
                 }
             }
 
-            return needUpdateFilePaths;
+            return needUpdateRemoteFilePaths;
         }
 
         private void UpdateXmlFile(string remoteXmlPath, List<string> needUpdateRemoteFilePaths)
