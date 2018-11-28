@@ -12,6 +12,11 @@ namespace AutoPublish
 {
     public class AutoPublish
     {
+        private const string XmlFileName = "UpdateList.xml";
+        private const string TempDownloadDirName = "tempDownload";
+        private readonly string _localTempDir = AppDomain.CurrentDomain.BaseDirectory + "\\" + TempDownloadDirName;
+        private readonly string _tempXmlPath = AppDomain.CurrentDomain.BaseDirectory + "\\" + TempDownloadDirName + "\\" + XmlFileName;//等待+1后被上传到服务器的xml文件路径
+
         private FtpTool _ftpTool;
 
         /// <summary>
@@ -85,19 +90,14 @@ namespace AutoPublish
         {
             Console.WriteLine("开始发布...");
 
-            var xmlFileName = "UpdateList.xml";
-            var tempDownloadDirName = "tempDownload";
-
-            var localTempDir = AppDomain.CurrentDomain.BaseDirectory + "\\" + tempDownloadDirName;
-            if (!Directory.Exists(localTempDir))
+            if (!Directory.Exists(_localTempDir))
             {
-                Directory.CreateDirectory(localTempDir);
+                Directory.CreateDirectory(_localTempDir);
             }
 
-            var tempXmlPath = localTempDir + "\\" + xmlFileName;//等待+1后被上传到服务器的xml文件路径
-            var remoteXmlPath = _ftpUpdateFolder + "\\" + Path.GetFileName(tempXmlPath);//服务器上xml文件路径
+            var remoteXmlPath = _ftpUpdateFolder + "\\" + Path.GetFileName(_tempXmlPath);//服务器上xml文件路径
 
-            _ftpTool.DownLoadFile(tempDownloadDirName, xmlFileName);
+            _ftpTool.DownLoadFile(TempDownloadDirName, XmlFileName);
 
             var localFilePathsTemp = Directory.GetFiles(_localDirPath, "*", _needCopyDescendantDir ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
             var localFilePaths = localFilePathsTemp.Where(localFilePath =>
@@ -109,7 +109,7 @@ namespace AutoPublish
 
             var needUpdateRemoteFilePaths = GetNeedUpdateFilePaths(localFilePaths);
 
-            UpdateXmlFile(tempXmlPath, needUpdateRemoteFilePaths);
+            UpdateXmlFile(_tempXmlPath, needUpdateRemoteFilePaths);
 
             if (needUpdateRemoteFilePaths.Count == 0)
             {
@@ -190,6 +190,16 @@ namespace AutoPublish
         private List<string> ConvertToLoaclFilePaths(List<string> remoteFilePaths)
         {
             var filePaths = remoteFilePaths.Select(p => _localDirPath + p.Replace(_ftpUpdateFolder, "")).ToList();
+
+            //xml文件特殊对待
+            for (int i = 0; i < remoteFilePaths.Count; i++)
+            {
+                if (remoteFilePaths[i].EndsWith(XmlFileName))
+                {
+                    filePaths[i] = _tempXmlPath;
+                }
+            }
+
             return filePaths;
         }
 
