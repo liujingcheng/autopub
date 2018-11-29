@@ -122,10 +122,12 @@ namespace AutoPublish
                     return;
                 }
                 Console.WriteLine("开始上传文件......");
-                //先上传要发布的文件
-                UploadFiles(ftpClient, needUpdateRemoteFilePaths);
-                //最后上传xml文件
-                UploadFiles(ftpClient, new List<string>() { remoteXmlPath });
+                
+                UploadFiles(ftpClient, needUpdateRemoteFilePaths);//先上传要发布的文件
+                Console.WriteLine("发布文件上传完毕......");
+
+                UploadFiles(ftpClient, new List<string>() { remoteXmlPath });//最后上传xml文件
+                Console.WriteLine("xml文件上传完毕......");
 
                 Console.WriteLine("发布完成！");
             }
@@ -308,7 +310,9 @@ namespace AutoPublish
                 if (localFileLength != remoteFileLength)
                 {
                     list.Add(remoteFilePath);
-                    Console.WriteLine(string.Format("上传完后检测到远程文件与本地文件大小不一致！localFileLength = {0}, remoteFileLenth = {1}", localFileLength, remoteFileLength));
+                    Console.WriteLine(string.Format("上传完后检测到远程文件与本地文件大小不一致！" +
+                                                    "localFileLength = {0}, remoteFileLenth = {1}，remoteFilePath = {2}",
+                        localFileLength, remoteFileLength, remoteFilePath));
                 }
             }
 

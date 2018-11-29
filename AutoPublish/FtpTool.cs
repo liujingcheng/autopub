@@ -141,7 +141,7 @@ namespace AutoPublish
                         throw new Exception(uploadResult.Url + uploadResult.Path + "上传失败！" + uploadResult.FailureMessage);
                     }
 
-                    Console.WriteLine(remoteFilePath);
+                    Console.WriteLine("上传：" + remoteFilePath);
                 }
             }
         }
