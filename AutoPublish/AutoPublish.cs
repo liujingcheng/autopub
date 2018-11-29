@@ -272,7 +272,6 @@ namespace AutoPublish
                     {
                         needUpdateRemoteFilePaths.Add(remoteFilePath);
                     }
-                    Console.WriteLine(string.Format("local={0},remote={1}", localFilePath, remoteFilePath));
                 }
             }
 
@@ -283,10 +282,10 @@ namespace AutoPublish
         {
             foreach (var needUpdateRemoteFilePath in needUpdateRemoteFilePaths)
             {
-                var relativeFilePath = needUpdateRemoteFilePath
-                    .Substring(_ftpUpdateFolder.Length)
-                    .Replace("/", @"\"); ;
-                Common.ModifyXmlFile(tempXmlPath, relativeFilePath);
+                var remoteRelativeFilePath = GetRelativeFilePath(needUpdateRemoteFilePath, _ftpUpdateFolder);
+                var localRelativeFilePath = remoteRelativeFilePath.Replace("/", @"\");
+
+                Common.ModifyXmlFile(tempXmlPath, localRelativeFilePath);
             }
 
         }
