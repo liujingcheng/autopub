@@ -122,7 +122,7 @@ namespace AutoPublish
                     return;
                 }
                 Console.WriteLine("开始上传文件......");
-                
+
                 UploadFiles(ftpClient, needUpdateRemoteFilePaths);//先上传要发布的文件
                 Console.WriteLine("发布文件上传完毕......");
 
@@ -260,17 +260,19 @@ namespace AutoPublish
                 var relativeFilePath = GetRelativeFilePath(localFilePath, _localDirPath);
                 if (relativeFilePath != null)
                 {
-                    var remoteFilePath = (_ftpUpdateFolder + relativeFilePath).Replace("\\", "/");
+                    var tmpRemoteFilePath = _ftpUpdateFolder + relativeFilePath;
+                    var remoteFilePath = (tmpRemoteFilePath).Replace("\\", "/");
                     if (!ftpClient.FileExists(remoteFilePath))
                     {
                         needUpdateRemoteFilePaths.Add(remoteFilePath);
                     }
                     else
-                    if (_ftpTool.IsLocalFileNewerThanRemoteFile(_ftpUpdateFolder + relativeFilePath,
+                    if (_ftpTool.IsLocalFileNewerThanRemoteFile(tmpRemoteFilePath,
                         localFilePath, ftpClient))
                     {
                         needUpdateRemoteFilePaths.Add(remoteFilePath);
                     }
+                    Console.WriteLine(string.Format("local={0},remote={1}", localFilePath, remoteFilePath));
                 }
             }
 
@@ -282,7 +284,7 @@ namespace AutoPublish
             foreach (var needUpdateRemoteFilePath in needUpdateRemoteFilePaths)
             {
                 var relativeFilePath = needUpdateRemoteFilePath
-                    .Substring(needUpdateRemoteFilePath.Length - _ftpUpdateFolder.Length)
+                    .Substring(_ftpUpdateFolder.Length)
                     .Replace("/", @"\"); ;
                 Common.ModifyXmlFile(tempXmlPath, relativeFilePath);
             }
