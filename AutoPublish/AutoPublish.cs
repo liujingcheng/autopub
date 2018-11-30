@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Net.FtpClient;
 using System.Text;
+using System.Threading;
 using System.Xml;
 
 namespace AutoPublish
@@ -169,8 +170,9 @@ namespace AutoPublish
             {
                 var localFilePaths = ConvertToLoaclFilePaths(toBeUploadFilePaths);
                 _ftpTool.UploadFileList(ftpClient, localFilePaths.ToArray(), toBeUploadFilePaths.ToArray());
-                toBeUploadFilePaths = GetUploadedFailedFiles(ftpClient, toBeUploadFilePaths);
 
+                Thread.Sleep(3000);
+                toBeUploadFilePaths = GetUploadedFailedFiles(ftpClient, toBeUploadFilePaths);
                 if (toBeUploadFilePaths.Count > 0)
                 {
                     Console.WriteLine(string.Format("有文件内容丢失！重试{0}次......", i));
