@@ -213,7 +213,14 @@ namespace AutoPublish
             serverFile = serverFile.Replace(_ftpUrl, "/");
 
             var serverFileModifiedTime = conn.GetModifiedTime(serverFile);
-            var localFileModifiedTime = (new FileInfo(localFile)).LastWriteTime;
+            var localFileInfo = new FileInfo(localFile);
+            var localFileModifiedTime = localFileInfo.LastWriteTime;
+            if (localFileModifiedTime < new DateTime(1985, 1, 1) && localFileInfo.CreationTime > localFileModifiedTime)
+            //有些文件比如System.Net.FtpClient.dll的最后修改时间是1980年1月1号，从文件属性里看是空的，所以做下特殊处理
+            {
+                localFileModifiedTime = localFileInfo.CreationTime;
+            }
+
             if (serverFileModifiedTime < localFileModifiedTime)
             {
                 return true;
