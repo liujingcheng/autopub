@@ -115,7 +115,8 @@ namespace AutoPublish
 
                 var needUpdateRemoteFilePaths = GetNeedUpdateFilePaths(ftpClient, localFilePaths);
 
-                UpdateXmlFile(_tempXmlPath, needUpdateRemoteFilePaths);
+                var excludeFilePaths = needUpdateRemoteFilePaths.Where(p => p.Contains("System.Net.FtpClient.dll")).ToList();
+                UpdateXmlFile(_tempXmlPath, needUpdateRemoteFilePaths, excludeFilePaths);
 
                 if (needUpdateRemoteFilePaths.Count == 0)
                 {
@@ -280,8 +281,9 @@ namespace AutoPublish
             return needUpdateRemoteFilePaths;
         }
 
-        private void UpdateXmlFile(string tempXmlPath, List<string> needUpdateRemoteFilePaths)
+        private void UpdateXmlFile(string tempXmlPath, List<string> needUpdateRemoteFilePaths, List<string> excludeFilePaths)
         {
+            needUpdateRemoteFilePaths = needUpdateRemoteFilePaths.Except(excludeFilePaths).ToList();
             foreach (var needUpdateRemoteFilePath in needUpdateRemoteFilePaths)
             {
                 var remoteRelativeFilePath = GetRelativeFilePath(needUpdateRemoteFilePath, _ftpUpdateFolder);
