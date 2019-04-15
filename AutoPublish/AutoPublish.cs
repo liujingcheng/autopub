@@ -42,6 +42,10 @@ namespace AutoPublish
         /// </summary>
         string _excludeNamesStr = ConfigurationManager.AppSettings["ExcludeNames"];
         /// <summary>
+        /// 要上传文件但不更新xml节点的名称（目录或文件名都可，逗号分割）
+        /// </summary>
+        string _notUpdateXmlNamesStr = ConfigurationManager.AppSettings["NotUpdateXmlNames"];
+        /// <summary>
         /// 要包含的目录路径（逗号分割）
         /// </summary>
         string _includeDirPathsStr = ConfigurationManager.AppSettings["IncludeDirPaths"];
@@ -49,6 +53,10 @@ namespace AutoPublish
         /// 要排除的名称（目录或文件名都可）
         /// </summary>
         private string[] _excludeNames = { };
+        /// <summary>
+        /// 要上传文件但不更新xml节点的名称（目录或文件名都可，逗号分割）
+        /// </summary>
+        private string[] _notUpdateXmlNames = { };
         /// <summary>
         /// 要包含的目录路径
         /// </summary>
@@ -81,8 +89,21 @@ namespace AutoPublish
 
         public void Init()
         {
+            if (_includeDirPathsStr == null)
+            {
+                Console.WriteLine("_includeDirPathsStr is null");
+            }
+            if (_excludeNamesStr == null)
+            {
+                Console.WriteLine("_excludeNamesStr is null");
+            }
+            if (_excludeNamesStr == null)
+            {
+                Console.WriteLine("_notUpdateXmlNames is null");
+            }
             bool.TryParse(_needCopyDescendantDirStr, out _needCopyDescendantDir);
             _excludeNames = _excludeNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            _notUpdateXmlNames = _notUpdateXmlNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             _includeDirPaths = _includeDirPathsStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             _ftpTool = new FtpTool(_ftpUrl, _ftpUserName, _ftpPassword, _ftpUpdateFolder);
         }
@@ -115,8 +136,10 @@ namespace AutoPublish
 
                 var needUpdateRemoteFilePaths = GetNeedUpdateFilePaths(ftpClient, localFilePaths);
 
-                var excludeFilePaths = needUpdateRemoteFilePaths.Where(p => p.Contains("System.Net.FtpClient.dll")).ToList();
-                UpdateXmlFile(_tempXmlPath, needUpdateRemoteFilePaths, excludeFilePaths);
+                //排除掉不更新xml节点的文件（因为这些文件被更新程序使用了，所以不能再通过更新程序来更新）
+                var notUpdateXmlNames = needUpdateRemoteFilePaths.Where(remoteFilePath => _notUpdateXmlNames.Any(remoteFilePath.Contains))
+                    .ToList();
+                UpdateXmlFile(_tempXmlPath, needUpdateRemoteFilePaths, notUpdateXmlNames);
 
                 if (needUpdateRemoteFilePaths.Count == 0)
                 {
