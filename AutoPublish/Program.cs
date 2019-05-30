@@ -9,7 +9,7 @@ namespace AutoPublish
     {
         static void Main(string[] args)
         {
-            var publish = new AutoPublish(args[0], args[1], args[2], args[3], args[4]);
+            var publish = new AutoPublish(args[0], args[1], args[2], args[3], args[4], args[5]);
             publish.Publish();
             //var publish = new PsPublish();
             //publish.Publish(args[0], args[1]);

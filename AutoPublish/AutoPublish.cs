@@ -5,9 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.FtpClient;
-using System.Text;
 using System.Threading;
-using System.Xml;
 
 namespace AutoPublish
 {
@@ -29,6 +27,10 @@ namespace AutoPublish
         private readonly string _ftpUserName;
         private readonly string _ftpPassword;
 
+        /// <summary>
+        /// ftp发布文件上传目录
+        /// </summary>
+        string _ftpUploadFolder;
         /// <summary>
         /// ftp发布文件更新目录
         /// </summary>
@@ -66,13 +68,14 @@ namespace AutoPublish
         /// </summary>
         private bool _needCopyDescendantDir;
 
-        public AutoPublish(string localDirPath, string ftpUrl, string ftpUserName, string ftpPassword, string ftpUpdateFolder)
+        public AutoPublish(string localDirPath, string ftpUrl, string ftpUserName, string ftpPassword, string ftpUpdateFolder, string ftpUploadFolder)
         {
             _localDirPath = localDirPath;
             _ftpUrl = ftpUrl;
             _ftpUserName = ftpUserName;
             _ftpPassword = ftpPassword;
             _ftpUpdateFolder = ftpUpdateFolder;
+            _ftpUploadFolder = ftpUploadFolder;
             Init();
         }
 
@@ -83,6 +86,7 @@ namespace AutoPublish
             _ftpUserName = ConfigurationManager.AppSettings["FtpUserName"];
             _ftpPassword = ConfigurationManager.AppSettings["FtpPassword"];
             _ftpUpdateFolder = ConfigurationManager.AppSettings["FtpUpdateFolder"];
+            _ftpUploadFolder = ConfigurationManager.AppSettings["FtpUploadFolder"];
 
             Init();
         }
@@ -105,7 +109,7 @@ namespace AutoPublish
             _excludeNames = _excludeNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             _notUpdateXmlNames = _notUpdateXmlNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             _includeDirPaths = _includeDirPathsStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-            _ftpTool = new FtpTool(_ftpUrl, _ftpUserName, _ftpPassword, _ftpUpdateFolder);
+            _ftpTool = new FtpTool(_ftpUrl, _ftpUserName, _ftpPassword, _ftpUploadFolder);
         }
 
         public void Publish()
@@ -117,7 +121,7 @@ namespace AutoPublish
                 Directory.CreateDirectory(_localTempDir);
             }
 
-            var remoteXmlPath = _ftpUpdateFolder + "\\" + Path.GetFileName(_tempXmlPath);//服务器上xml文件路径
+            var remoteXmlPath = _ftpUploadFolder + "\\" + Path.GetFileName(_tempXmlPath);//服务器上xml文件路径
 
             _ftpTool.DownLoadFile(TempDownloadDirName, XmlFileName);
 
@@ -127,12 +131,14 @@ namespace AutoPublish
                 || IsDirPath(localFilePath) && IsContainedByIncludeDirPaths(localFilePath))
                 .ToList();
 
+            string host = _ftpUrl.Replace("ftp://", "");
+            List<string> needMoveRemoteFilePaths = null;
             using (FtpClient ftpClient = new FtpClient())
             {
-                ftpClient.Host = _ftpUrl.Replace("ftp://", "");
+                ftpClient.Host = host;
                 ftpClient.Credentials = new NetworkCredential(_ftpUserName, _ftpPassword);
 
-                CreateRemoteFileDirIfNotExist(ftpClient, localFilePaths);
+                CreateRemoteFileDirIfNotExist(ftpClient, _ftpUploadFolder, localFilePaths);
 
                 var needUpdateRemoteFilePaths = GetNeedUpdateFilePaths(ftpClient, localFilePaths);
 
@@ -154,24 +160,56 @@ namespace AutoPublish
                 UploadFiles(ftpClient, new List<string>() { remoteXmlPath });//最后上传xml文件
                 Console.WriteLine("xml文件上传完毕......");
 
-                Console.WriteLine("发布完成！");
+                CreateRemoteFileDirIfNotExist(ftpClient, _ftpUpdateFolder, localFilePaths);
+                needMoveRemoteFilePaths = new List<string>();
+                needMoveRemoteFilePaths.AddRange(needUpdateRemoteFilePaths);
+                needMoveRemoteFilePaths.Add(remoteXmlPath);
             }
 
+            using (FluentFTP.FtpClient ftpClient = new FluentFTP.FtpClient(host, new NetworkCredential(_ftpUserName, _ftpPassword)))
+            {
+                Console.WriteLine("开始移动文件到目标目录......");
+
+                MoveFilesToDestinationDir(ftpClient, needMoveRemoteFilePaths);
+
+                Console.WriteLine("发布完成！");
+            }
+        }
+
+
+        /// <summary>
+        /// 将上传目录里的文件移到目标目录里
+        /// </summary>
+        /// <param name="ftpClient"></param>
+        /// <param name="needMoveRemoteFilePaths"></param>
+        private void MoveFilesToDestinationDir(FluentFTP.FtpClient ftpClient, List<string> needMoveRemoteFilePaths)
+        {
+            foreach (string src in needMoveRemoteFilePaths)
+            {
+                var dest = src.Replace(_ftpUploadFolder + "/", _ftpUpdateFolder + "/");
+                var success = ftpClient.MoveFile(src, dest, FluentFTP.FtpExists.Overwrite);
+                if (!success)
+                {
+                    throw new Exception("移动文件到目标目录失败！" + src);
+                }
+                Console.WriteLine("移动文件：" + src);
+            }
         }
 
         /// <summary>
         /// 根据本地目录路径判断如果远程对应子目录不存在，需要创建远程子目录
         /// </summary>
         /// <param name="ftpClient"></param>
+        /// <param name="ftpFolder">ftp远程目录</param>
         /// <param name="localFilePaths"></param>
-        private void CreateRemoteFileDirIfNotExist(FtpClient ftpClient, List<string> localFilePaths)
+        private void CreateRemoteFileDirIfNotExist(FtpClient ftpClient, string ftpFolder, List<string> localFilePaths)
         {
             var distinctDirPaths = localFilePaths.Select(p => p.Substring(0, p.LastIndexOf("\\"))).Distinct().OrderBy(p => p.Length).ToList();
 
             foreach (var dirPath in distinctDirPaths)
             {
                 var relativeDirPath = GetRelativeFilePath(dirPath, _localDirPath);
-                var ftpDirPath = _ftpUpdateFolder + relativeDirPath.Replace("\\", "/");
+                var ftpDirPath = ftpFolder + relativeDirPath.Replace("\\", "/");
                 if (!ftpClient.DirectoryExists(ftpDirPath))
                 {
                     ftpClient.CreateDirectory(ftpDirPath, true);
@@ -216,7 +254,7 @@ namespace AutoPublish
         /// <returns></returns>
         private List<string> ConvertToLoaclFilePaths(List<string> remoteFilePaths)
         {
-            var filePaths = remoteFilePaths.Select(p => _localDirPath + p.Replace(_ftpUpdateFolder, "")).ToList();
+            var filePaths = remoteFilePaths.Select(p => _localDirPath + p.Replace(_ftpUploadFolder, "")).ToList();
 
             //xml文件特殊对待
             for (int i = 0; i < remoteFilePaths.Count; i++)
@@ -286,7 +324,7 @@ namespace AutoPublish
                 var relativeFilePath = GetRelativeFilePath(localFilePath, _localDirPath);
                 if (relativeFilePath != null)
                 {
-                    var tmpRemoteFilePath = _ftpUpdateFolder + relativeFilePath;
+                    var tmpRemoteFilePath = _ftpUploadFolder + relativeFilePath;
                     var remoteFilePath = (tmpRemoteFilePath).Replace("\\", "/");
                     if (!ftpClient.FileExists(remoteFilePath))
                     {
@@ -309,7 +347,7 @@ namespace AutoPublish
             needUpdateRemoteFilePaths = needUpdateRemoteFilePaths.Except(excludeFilePaths).ToList();
             foreach (var needUpdateRemoteFilePath in needUpdateRemoteFilePaths)
             {
-                var remoteRelativeFilePath = GetRelativeFilePath(needUpdateRemoteFilePath, _ftpUpdateFolder);
+                var remoteRelativeFilePath = GetRelativeFilePath(needUpdateRemoteFilePath, _ftpUploadFolder);
                 var localRelativeFilePath = remoteRelativeFilePath.Replace("/", @"\");
 
                 Common.ModifyXmlFile(tempXmlPath, localRelativeFilePath);
