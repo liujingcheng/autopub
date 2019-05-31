@@ -12,14 +12,12 @@ namespace AutoPublish
         private string _ftpUrl;
         private string _ftpUserName;
         private string _ftpPassword;
-        private string _ftpUpdateFolder;
 
-        public FtpTool(string ftpurl, string ftpUserName, string ftpPasswd, string ftpUpdateFolder)
+        public FtpTool(string ftpurl, string ftpUserName, string ftpPasswd)
         {
             _ftpUrl = ftpurl;
             _ftpUserName = ftpUserName;
             _ftpPassword = ftpPasswd;
-            _ftpUpdateFolder = ftpUpdateFolder;
         }
 
         /// <summary>
@@ -27,9 +25,10 @@ namespace AutoPublish
         /// </summary>
         /// <param name="localTempDirPath">本地临时文件夹路径</param>
         /// <param name="fileName">要下载的文件名</param>
-        public void DownLoadFile(string localTempDirPath, string fileName)
+        /// <param name="remoteFolderName">远程根目录下要下载的文件位于的目录名</param>
+        public void DownLoadFile(string localTempDirPath, string fileName, string remoteFolderName)
         {
-            var serverPath = _ftpUrl + "/" + _ftpUpdateFolder;
+            var serverPath = _ftpUrl + "/" + remoteFolderName;
             var serverFilePath = serverPath + "/" + fileName;
 
             var localTempFilePath = localTempDirPath + "\\" + fileName;
