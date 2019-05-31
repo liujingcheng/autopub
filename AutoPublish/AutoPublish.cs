@@ -109,7 +109,7 @@ namespace AutoPublish
             _excludeNames = _excludeNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             _notUpdateXmlNames = _notUpdateXmlNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             _includeDirPaths = _includeDirPathsStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-            _ftpTool = new FtpTool(_ftpUrl, _ftpUserName, _ftpPassword, _ftpUploadFolder);
+            _ftpTool = new FtpTool(_ftpUrl, _ftpUserName, _ftpPassword);
         }
 
         public void Publish()
@@ -123,7 +123,7 @@ namespace AutoPublish
 
             var remoteXmlPath = _ftpUploadFolder + "\\" + Path.GetFileName(_tempXmlPath);//服务器上xml文件路径
 
-            _ftpTool.DownLoadFile(TempDownloadDirName, XmlFileName);
+            _ftpTool.DownLoadFile(TempDownloadDirName, XmlFileName, _ftpUpdateFolder);//xml文件还是要从更新目录下载
 
             var localFilePathsTemp = Directory.GetFiles(_localDirPath, "*", _needCopyDescendantDir ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
             var localFilePaths = localFilePathsTemp.Where(localFilePath =>
@@ -163,7 +163,7 @@ namespace AutoPublish
                 CreateRemoteFileDirIfNotExist(ftpClient, _ftpUpdateFolder, localFilePaths);
                 needMoveRemoteFilePaths = new List<string>();
                 needMoveRemoteFilePaths.AddRange(needUpdateRemoteFilePaths);
-                needMoveRemoteFilePaths.Add(remoteXmlPath);
+                needMoveRemoteFilePaths.Add(remoteXmlPath.Replace("\\","/"));
             }
 
             using (FluentFTP.FtpClient ftpClient = new FluentFTP.FtpClient(host, new NetworkCredential(_ftpUserName, _ftpPassword)))
@@ -212,6 +212,7 @@ namespace AutoPublish
                 var ftpDirPath = ftpFolder + relativeDirPath.Replace("\\", "/");
                 if (!ftpClient.DirectoryExists(ftpDirPath))
                 {
+                    Console.WriteLine("创建目录：" + ftpDirPath);
                     ftpClient.CreateDirectory(ftpDirPath, true);
                 }
             }
@@ -321,6 +322,7 @@ namespace AutoPublish
 
             foreach (var localFilePath in localFilePaths)
             {
+                Console.WriteLine("对比文件是否要更新：" + localFilePath);
                 var relativeFilePath = GetRelativeFilePath(localFilePath, _localDirPath);
                 if (relativeFilePath != null)
                 {
