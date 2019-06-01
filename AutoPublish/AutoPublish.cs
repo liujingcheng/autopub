@@ -30,7 +30,7 @@ namespace AutoPublish
         /// <summary>
         /// ftp发布文件上传目录
         /// </summary>
-        string _ftpUploadFolder;
+        string _ftpUploadFolder = "UpdateFilesTemp";
         /// <summary>
         /// ftp发布文件更新目录
         /// </summary>
@@ -68,14 +68,13 @@ namespace AutoPublish
         /// </summary>
         private bool _needCopyDescendantDir;
 
-        public AutoPublish(string localDirPath, string ftpUrl, string ftpUserName, string ftpPassword, string ftpUpdateFolder, string ftpUploadFolder)
+        public AutoPublish(string localDirPath, string ftpUrl, string ftpUserName, string ftpPassword, string ftpUpdateFolder)
         {
             _localDirPath = localDirPath;
             _ftpUrl = ftpUrl;
             _ftpUserName = ftpUserName;
             _ftpPassword = ftpPassword;
             _ftpUpdateFolder = ftpUpdateFolder;
-            _ftpUploadFolder = ftpUploadFolder;
             Init();
         }
 
@@ -86,7 +85,6 @@ namespace AutoPublish
             _ftpUserName = ConfigurationManager.AppSettings["FtpUserName"];
             _ftpPassword = ConfigurationManager.AppSettings["FtpPassword"];
             _ftpUpdateFolder = ConfigurationManager.AppSettings["FtpUpdateFolder"];
-            _ftpUploadFolder = ConfigurationManager.AppSettings["FtpUploadFolder"];
 
             Init();
         }
@@ -162,8 +160,8 @@ namespace AutoPublish
 
                 CreateRemoteFileDirIfNotExist(ftpClient, _ftpUpdateFolder, localFilePaths);
                 needMoveRemoteFilePaths = new List<string>();
+                needMoveRemoteFilePaths.Add(remoteXmlPath.Replace("\\","/"));//先移动xml文件，再移动其它文件，避免万一失败，下次发布后只更新部分dll
                 needMoveRemoteFilePaths.AddRange(needUpdateRemoteFilePaths);
-                needMoveRemoteFilePaths.Add(remoteXmlPath.Replace("\\","/"));
             }
 
             using (FluentFTP.FtpClient ftpClient = new FluentFTP.FtpClient(host, new NetworkCredential(_ftpUserName, _ftpPassword)))
