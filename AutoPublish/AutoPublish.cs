@@ -30,7 +30,7 @@ namespace AutoPublish
         /// <summary>
         /// ftp发布文件上传目录
         /// </summary>
-        string _ftpUploadFolder = "UpdateFilesTemp";
+        string _ftpUploadFolder = "UpdateFilesTemp";//临时目录硬编码即可;
         /// <summary>
         /// ftp发布文件更新目录
         /// </summary>
@@ -99,10 +99,11 @@ namespace AutoPublish
             {
                 Console.WriteLine("_excludeNamesStr is null");
             }
-            if (_excludeNamesStr == null)
+            if (_notUpdateXmlNamesStr == null)
             {
                 Console.WriteLine("_notUpdateXmlNames is null");
             }
+
             bool.TryParse(_needCopyDescendantDirStr, out _needCopyDescendantDir);
             _excludeNames = _excludeNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
             _notUpdateXmlNames = _notUpdateXmlNamesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
