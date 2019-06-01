@@ -139,7 +139,17 @@ namespace AutoPublish
 
                 CreateRemoteFileDirIfNotExist(ftpClient, _ftpUploadFolder, localFilePaths);
 
-                var needUpdateRemoteFilePaths = GetNeedUpdateFilePaths(ftpClient, localFilePaths);
+                var needUpdateRemoteFilePathsTemp = GetNeedUpdateFilePaths(ftpClient, localFilePaths, _ftpUpdateFolder);
+
+                var needUpdateRemoteFilePaths = new List<string>();
+                //把更新目录替换成要上传的临时目录
+                needUpdateRemoteFilePathsTemp.ForEach(p =>
+                {
+                    if (p.StartsWith(_ftpUpdateFolder + "/"))
+                    {
+                        needUpdateRemoteFilePaths.Add(p.Replace(_ftpUpdateFolder + "/", _ftpUploadFolder + "/"));
+                    }
+                });
 
                 //排除掉不更新xml节点的文件（因为这些文件被更新程序使用了，所以不能再通过更新程序来更新）
                 var notUpdateXmlNames = needUpdateRemoteFilePaths.Where(remoteFilePath => _notUpdateXmlNames.Any(remoteFilePath.Contains))
@@ -314,18 +324,19 @@ namespace AutoPublish
         /// </summary>
         /// <param name="ftpClient"></param>
         /// <param name="localFilePaths"></param>
+        /// <param name="remoteFolderName">远程根目录下要要对比时间的文件位于的目录</param>
         /// <returns></returns>
-        private List<string> GetNeedUpdateFilePaths(FtpClient ftpClient, List<string> localFilePaths)
+        private List<string> GetNeedUpdateFilePaths(FtpClient ftpClient, List<string> localFilePaths, string remoteFolderName)
         {
             var needUpdateRemoteFilePaths = new List<string>();
 
             foreach (var localFilePath in localFilePaths)
             {
-                Console.WriteLine("对比文件是否要更新：" + localFilePath);
+                //Console.WriteLine("对比文件是否要更新：" + localFilePath);
                 var relativeFilePath = GetRelativeFilePath(localFilePath, _localDirPath);
                 if (relativeFilePath != null)
                 {
-                    var tmpRemoteFilePath = _ftpUploadFolder + relativeFilePath;
+                    var tmpRemoteFilePath = remoteFolderName + relativeFilePath;
                     var remoteFilePath = (tmpRemoteFilePath).Replace("\\", "/");
                     if (!ftpClient.FileExists(remoteFilePath))
                     {
